@@ -1,0 +1,106 @@
+name: Suspected disagreement between codes
+description: Two or more codes gave different answers for the same physics. This is the report this project is for.
+title: "[disagreement] "
+labels: ["disagreement"]
+assignees: ["iderex"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A disagreement between codes is the expected output of this project, not
+        an embarrassment and not a bug report. It gets its own form so that it
+        arrives with what is needed to tell a real method difference from an
+        identification failure or a case that asked the codes two different
+        questions.
+
+        The last question below is the one that decides which of those it is, so
+        it is required even when the answer is that you do not know.
+
+        Do not paste anything you would not publish. Publishing is a separate
+        command with its own redaction, and this form has none.
+
+  - type: input
+    id: ion
+    attributes:
+      label: The ion
+      description: Element and charge state, for example Fe 16+.
+    validations:
+      required: true
+
+  - type: textarea
+    id: configurations
+    attributes:
+      label: The configurations
+      description: >-
+        The reference configurations and the configuration set the case
+        included, as the case declared them.
+    validations:
+      required: true
+
+  - type: textarea
+    id: which-codes
+    attributes:
+      label: Which codes disagreed, and by how much
+      description: >-
+        Name each code, give the quantity, give the values with the units, and
+        give the size of the difference. Quote the numbers as the codes printed
+        them rather than rounding them here.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: identification
+    attributes:
+      label: Was identification confident on the levels concerned
+      description: >-
+        Taken from the identification result in the bundle, not from an
+        impression. An unmatched or ambiguous level is not a disagreement, it is
+        this harness declining to compare, and it is the first thing to rule out.
+      options:
+        - Confident on every level involved
+        - At least one level was ambiguous
+        - At least one level was unmatched
+        - The comparison was refused for another reason
+        - I do not know
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: The bundle, or the part of it that shows the disagreement
+      description: >-
+        Attach the bundle, or paste the rows that differ together with the
+        identification result for those levels. Name which file inside the
+        bundle each part came from.
+    validations:
+      required: true
+
+  - type: textarea
+    id: manifests
+    attributes:
+      label: The container manifest of every code involved
+      description: >-
+        Two codes built with different compilers at different optimisation
+        levels differ for reasons that are not method differences, so the
+        manifests are what separates the two readings.
+    validations:
+      required: true
+
+  - type: input
+    id: harness-version
+    attributes:
+      label: The harness version
+      description: The output of the version subcommand, in full, including the commit.
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: >-
+        Optional. Published values for these levels, an earlier run that agreed,
+        or anything else that bears on it.
+    validations:
+      required: false
