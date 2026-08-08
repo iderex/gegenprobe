@@ -51,13 +51,16 @@ func TestGoDirectiveMatchesTheDecisionRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The message names a path a reader will retype, so it is written with the
+	// separator the tree uses rather than the one this platform happens to.
+	recordPath := filepath.ToSlash(matches[0])
 
 	mentioned := map[string]bool{}
 	for _, m := range versionInProse.FindAllStringSubmatch(string(record), -1) {
 		mentioned[m[1]] = true
 	}
 	if len(mentioned) == 0 {
-		t.Fatalf("%s mentions no Go version at all, so the record no longer says what the floor is", matches[0])
+		t.Fatalf("%s mentions no Go version at all, so the record no longer says what the floor is", recordPath)
 	}
 
 	var wrong []string
@@ -69,7 +72,7 @@ func TestGoDirectiveMatchesTheDecisionRecord(t *testing.T) {
 	sort.Strings(wrong)
 	if len(wrong) > 0 {
 		t.Errorf("go.mod declares Go %s and %s mentions %s. Raising the floor is a change to go.mod and to a successor record, so make the two agree.",
-			declared, matches[0], strings.Join(wrong, ", "))
+			declared, recordPath, strings.Join(wrong, ", "))
 	}
 }
 
