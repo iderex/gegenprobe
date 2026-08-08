@@ -1,0 +1,86 @@
+name: Bug report
+description: Something in this tool behaved wrongly. Not for a disagreement between codes.
+title: "[bug] "
+labels: ["bug"]
+assignees: ["iderex"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A report about this tool needs four things before anybody can reproduce
+        it: the case that was run, what the codes were built from, which version
+        of the harness ran them, and the part of the result that shows the
+        problem. All four are asked for below and all four are required, because
+        a report missing any of them cannot be reproduced at all.
+
+        If what you are reporting is two codes giving different numbers, that is
+        not a bug in this tool and it is the report this project most wants to
+        receive. Go back and choose the suspected disagreement form.
+
+        Do not paste anything you would not publish. Publishing is a separate
+        command with its own redaction, and this form has none.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what you expected instead
+      description: Both halves. What the tool did, and what you were expecting it to do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: case-file
+    attributes:
+      label: The case file
+      description: >-
+        The whole case file as you wrote it, not a summary of it. If it is long,
+        attach it instead and say so here.
+    validations:
+      required: true
+
+  - type: textarea
+    id: manifests
+    attributes:
+      label: The container manifest of every code involved
+      description: >-
+        The manifest baked into each image, as the run record copied it. It
+        carries the source checksum, the base image digest, the compiler and its
+        version, the flags and the numerical libraries. A report naming a code
+        without its manifest names four things at once and identifies none of
+        them.
+    validations:
+      required: true
+
+  - type: input
+    id: harness-version
+    attributes:
+      label: The harness version
+      description: The output of the version subcommand, in full, including the commit.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: The bundle, or the part of it that shows the problem
+      description: >-
+        Attach the bundle, or paste the smallest part of it that shows what went
+        wrong. Name which file inside the bundle it came from.
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system, architecture and container engine
+      description: For example, linux/amd64 with Podman 5.2.0.
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: Optional. Anything that does not fit above.
+    validations:
+      required: false
