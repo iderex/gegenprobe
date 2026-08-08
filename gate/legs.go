@@ -60,6 +60,11 @@ func legs() []leg {
 			subject: "every fixture is stored so that no checkout can rewrite its bytes, and says where it came from",
 			run:     fixtureStorageLeg,
 		},
+		{
+			name:    "reproducible build",
+			subject: "two builds of this tree produce identical bytes, and neither carries the directory they were built in",
+			run:     reproducibleBuildLeg,
+		},
 	}
 }
 

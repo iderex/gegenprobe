@@ -104,6 +104,14 @@ jobs:
       # No tests run here. A cross built binary cannot be executed on this
       # runner, and pretending otherwise is what a matrix of test jobs would be
       # for.
+      #
+      # -trimpath is not decoration. Without it every binary below carries the
+      # absolute path of this runner's checkout, which differs from anybody
+      # else's, so no reader could ever reproduce the checksums this step
+      # publishes. The flag produces no output when it is forgotten, so the
+      # search that follows each build is the whole evidence that it was passed.
+      # The gate proves the same property over a native build; this proves it
+      # over the artefacts a user is invited to compare against.
       - name: Build for every target an operator runs on
         run: |
           set -euo pipefail
@@ -116,8 +124,37 @@ jobs:
               out="${out}.exe"
             fi
             echo "building ${target}"
-            GOOS="$goos" GOARCH="$goarch" go build -o "$out" .
+            GOOS="$goos" GOARCH="$goarch" go build -trimpath -o "$out" .
+            if grep -a -q -- "$PWD" "$out"; then
+              echo "::error::${out} carries ${PWD}, so -trimpath did not take and this checksum is reproducible on no other machine"
+              exit 1
+            fi
           done
           echo
           echo "four targets, four binaries:"
           ls -l dist
+
+      # The checksums are the point of the job for a reader rather than for the
+      # build: somebody who does not trust a downloaded binary builds their own
+      # and compares. Reproducing them needs the same commit, the same Go
+      # toolchain version, the same GOOS and GOARCH pair, -trimpath, and a clean
+      # checkout, because the toolchain records whether the working tree was
+      # modified. All five, and the line below says so where the numbers are.
+      - name: Publish the checksum of each target
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum ./* | tee SHA256SUMS
+          {
+            echo "### Cross build checksums"
+            echo
+            echo "Reproduce with the same commit, the same Go toolchain version as \`go.mod\` declares, the same GOOS and GOARCH, \`-trimpath\`, and a clean checkout:"
+            echo
+            echo '```'
+            echo "GOOS=<os> GOARCH=<arch> go build -trimpath -o <out> ."
+            echo '```'
+            echo
+            echo '```'
+            cat SHA256SUMS
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
