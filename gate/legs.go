@@ -56,6 +56,11 @@ func legs() []leg {
 			run:     actionPinningLeg,
 		},
 		{
+			name:    "fixture storage",
+			subject: "every fixture is stored so that no checkout can rewrite its bytes, and says where it came from",
+			run:     fixtureStorageLeg,
+		},
+		{
 			name:    "gate tier capabilities",
 			subject: "no gate tier test source reaches for a display, elevation, a network, or a path of its own choosing",
 			run:     capabilitiesLeg,
