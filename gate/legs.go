@@ -51,6 +51,21 @@ func legs() []leg {
 			run:     func(root string) outcome { return command(root, "go", "run", "./tools/decisionindex", "-check") },
 		},
 		{
+			name:    "documentation form",
+			subject: "every Markdown file in the tree is written in the form docs/markdown-form.md fixes",
+			run:     documentationFormLeg,
+		},
+		{
+			name:    "documentation links",
+			subject: "every link inside this tree's Markdown resolves to something in it",
+			run:     documentationLinksLeg,
+		},
+		{
+			name:    "documented paths",
+			subject: "every path this tree's Markdown names in prose exists",
+			run:     documentationPathsLeg,
+		},
+		{
 			name:    "action pinning",
 			subject: "every action a workflow uses is pinned to a commit sha",
 			run:     actionPinningLeg,
