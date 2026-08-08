@@ -1,0 +1,86 @@
+# CodeQL over the two things this repository is made of: the Go source, and the
+# workflow files that decide what runs with a token.
+#
+# The workflow analyses are not a second opinion on the Go analyses. They read a
+# different language for a different failure: a workflow that interpolates
+# untrusted text into a shell, or grants a scope a step does not need. The audit
+# in zizmor.yml reads the same files with its own rules, and the two disagree
+# often enough that dropping either loses findings.
+#
+# Findings land in the code-scanning tab beside Scorecard and zizmor rather than
+# reddening a check. A CodeQL alert is a claim about a code path that somebody
+# has to read before it means anything, and a run that fails on the claim itself
+# turns triage into a merge blocker. What fails here is the analysis not
+# completing.
+#
+# The third analysis the target board runs covers web assets. There are none in
+# this tree and there is no plan for any, so it is not configured here.
+name: CodeQL
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, so a query pack that learns about a pattern after a change landed
+    # still finds it. Nothing else in this repository would.
+    - cron: "41 3 * * 3"
+
+# Deny everything at the top and grant per job, which is the shape the other
+# workflows in this directory already take.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    # The matrix value is in the name on purpose. "Analyze (go)" and
+    # "Analyze (actions)" are what a reader sees on a pull request, and a single
+    # check called CodeQL would not say which half of the tree went red.
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Where the alerts go. Without it the analysis runs and nothing is
+      # recorded, which is the shape that reads as covered.
+      security-events: write
+    strategy:
+      # Each language is a separate claim about a separate part of the tree. One
+      # failing says nothing about the other, so it does not cancel it.
+      fail-fast: false
+      matrix:
+        include:
+          - language: go
+            build-mode: autobuild
+          - language: actions
+            build-mode: none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        if: matrix.language == 'go'
+        # The extractor builds the module, so it needs the toolchain go.mod
+        # declares. The runner image ships whatever it ships, and a version
+        # older than the floor fails the build rather than the analysis, which
+        # is a confusing way to find out.
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          category: /language:${{ matrix.language }}
