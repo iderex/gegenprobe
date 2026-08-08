@@ -1,0 +1,16 @@
+# Absolute path literals, one per line, blank lines and lines opening with a
+# hash ignored.
+#
+# They live here rather than in the suite's source because the leg is right to
+# refuse an absolute path literal in a gate tier test, and the case proving it
+# does needs two of them as data. Record 0009 says the answer to a rule that
+# refuses something legitimate is a narrower rule or a fixture, never a
+# suppression on the line, and this is the fixture. Source and data under
+# testdata are not compiled by the go tool and not read by the leg, so nothing
+# here is a gate tier test.
+#
+# Provenance: written by hand for this check. The first is the file every POSIX
+# example reaches for, the second is the Windows spelling with a drive letter and
+# backslashes, because the suite runs on both and the leg matches both.
+/etc/hosts
+C:\Windows\System32

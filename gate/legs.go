@@ -55,6 +55,11 @@ func legs() []leg {
 			subject: "every action a workflow uses is pinned to a commit sha",
 			run:     actionPinningLeg,
 		},
+		{
+			name:    "gate tier capabilities",
+			subject: "no gate tier test source reaches for a display, elevation, a network, or a path of its own choosing",
+			run:     capabilitiesLeg,
+		},
 	}
 }
 
