@@ -1,0 +1,123 @@
+# The checks this repository publishes on a pull request, and the names a reader
+# sees when one of them is red. The names are part of the interface: later issues
+# refer to them, and a check whose name says nothing forces a reader to open the
+# log to find out what was even being asked.
+#
+# There is no check logic in this file. Gate invokes the one command that holds
+# every check this repository has, so what runs here and what a contributor runs
+# before pushing cannot drift apart. Adding a check means adding a leg to that
+# command, never a step here.
+name: CI
+
+on:
+  # Any base branch, so a change stacked on another branch is checked too.
+  pull_request:
+  push:
+    branches: [main]
+
+# Read only for everything. A job that needs more opts into it itself, and none
+# of the three below needs anything the checkout does not already have.
+permissions:
+  contents: read
+
+# A superseded run on the same ref is cancelled. Every job here is a pure
+# function of the tree, so re-running the newer commit says everything the older
+# run would have said.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here pushes, so the token is not kept on disk where a later
+          # step could reach it.
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The floor lives in go.mod and is read from there rather than
+          # restated, so raising it is one edit and not two.
+          go-version-file: go.mod
+
+      - name: Install staticcheck
+        # Setup rather than a check. One leg of the gate performs static
+        # analysis and reports a skip where the analyser is absent, which on a
+        # runner that installs nothing would mean this job never analysed
+        # anything and said so in a line nobody reads. The version is the one
+        # the gate's own skip message names. It is fetched over the network from
+        # outside this module, which is the cost, and it is the only thing in
+        # this workflow that is.
+        run: go install honnef.co/go/tools/cmd/staticcheck@2025.1.1
+
+      - name: Run the gate
+        run: go run ./gate
+
+  race:
+    name: Race
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # Separate from Gate because it is slower, and because a data race is a
+      # different kind of finding from a failed assertion: one says the answer
+      # was wrong, the other says the answer was not reliably arrived at.
+      - name: Run the tests under the race detector
+        run: go test -race ./...
+
+  cross-build:
+    name: Cross build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # One job over the four pairs rather than a matrix, so the check a reader
+      # sees is called Cross build and not four things called Cross build with
+      # a suffix. Operators are on all four, and a build break on a platform
+      # nobody develops on is otherwise found by a user.
+      #
+      # No tests run here. A cross built binary cannot be executed on this
+      # runner, and pretending otherwise is what a matrix of test jobs would be
+      # for.
+      - name: Build for every target an operator runs on
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/arm64 windows/amd64; do
+            goos="${target%/*}"
+            goarch="${target#*/}"
+            out="dist/gegenprobe-${goos}-${goarch}"
+            if [ "$goos" = "windows" ]; then
+              out="${out}.exe"
+            fi
+            echo "building ${target}"
+            GOOS="$goos" GOARCH="$goarch" go build -o "$out" .
+          done
+          echo
+          echo "four targets, four binaries:"
+          ls -l dist
