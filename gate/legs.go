@@ -61,6 +61,11 @@ func legs() []leg {
 			run:     fixtureStorageLeg,
 		},
 		{
+			name:    "gate tier capabilities",
+			subject: "no gate tier test source reaches for a display, elevation, a network, or a path of its own choosing",
+			run:     capabilitiesLeg,
+		},
+		{
 			name:    "dependencies",
 			subject: "the direct dependencies are the ones docs/dependencies.md argues for, their checksums verify, and a build moves neither module file",
 			run:     dependenciesLeg,

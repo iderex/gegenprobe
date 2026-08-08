@@ -3,10 +3,21 @@ package main
 import (
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// insideTheBuildDirectory is a path under the directory the framework handed the
+// test, joined onto it rather than written out. The tail was once a literal
+// beginning with a separator, and record 0009 refuses an absolute path literal
+// in this tier by its first character, which that tail has even though the
+// directory it hangs off is not this test's to choose. Joining says the same
+// thing and holds no such literal.
+func insideTheBuildDirectory(root string) string {
+	return path.Join(filepath.ToSlash(root), "internal", "cli")
+}
 
 // The builder is a parameter, so every case below is a pair of artefacts this
 // test chose rather than a compiler run. That is what keeps these in the gate
@@ -71,9 +82,9 @@ func TestABinaryCarryingTheBuildDirectoryIsRefusedAndTheFlagIsNamed(t *testing.T
 		name  string
 		write func(root string) string
 	}{
-		{"forward slashes", func(root string) string { return "\x00padding" + filepath.ToSlash(root) + "/internal/cli\x00" }},
+		{"forward slashes", func(root string) string { return "\x00padding" + insideTheBuildDirectory(root) + "\x00" }},
 		{"backslashes", func(root string) string {
-			return "\x00padding" + strings.ReplaceAll(filepath.ToSlash(root), "/", `\`) + `\internal\cli` + "\x00"
+			return "\x00padding" + strings.ReplaceAll(insideTheBuildDirectory(root), "/", `\`) + "\x00"
 		}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -96,7 +107,7 @@ func TestABinaryCarryingTheBuildDirectoryIsRefusedAndTheFlagIsNamed(t *testing.T
 // miss is one component away: same parent, different leaf.
 func TestAPathOneComponentAwayFromTheBuildDirectoryIsNotRefused(t *testing.T) {
 	root := t.TempDir()
-	neighbour := filepath.ToSlash(filepath.Dir(root)) + "/a-different-directory/x"
+	neighbour := path.Join(filepath.ToSlash(filepath.Dir(root)), "a-different-directory", "x")
 
 	o := reproducibleBuild(root, t.TempDir(), writes("\x00"+neighbour+"\x00"))
 
@@ -176,7 +187,7 @@ func TestDisablingTheReproducibleBuildLegTurnsItsFixturesGreen(t *testing.T) {
 	}{
 		{"bytes that moved", func(string) buildFunc { return writes("built at 12:00", "built at 12:01") }},
 		{"the build directory in the artefact", func(root string) buildFunc {
-			return writes("\x00" + filepath.ToSlash(root) + "/internal/cli\x00")
+			return writes("\x00" + insideTheBuildDirectory(root) + "\x00")
 		}},
 		{"nothing written", func(string) buildFunc { return func(_, _ string) error { return nil } }},
 	} {
