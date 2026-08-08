@@ -1,0 +1,105 @@
+# The external links in this tree's documentation, read on a schedule.
+#
+# Not on a pull request, and that is the point of the file. An external link
+# fails for reasons that have nothing to do with the change in front of it: a
+# site down for an hour, a host that answers a browser and refuses anything
+# else, a network that blocks outbound traffic. A pull request refused for any of
+# those is a check somebody switches off, and then nothing reads the links at
+# all.
+#
+# So a dead link raises an issue instead. Nothing here goes red for one, because
+# the signal is the issue and a red scheduled run is a thing nobody is watching.
+# What does go red is this file failing to do its own job, which is a different
+# statement and stays visible.
+#
+# The reading itself is Go, in tools/externallinks, so it can be run by hand and
+# tested without a socket. There is no check logic in this file.
+name: External links
+
+on:
+  schedule:
+    # Weekly. A link that died on Tuesday is worth knowing about by the
+    # following Monday, and asking anybody's server more often than that is
+    # traffic this project has no reason to generate.
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+# Not cancelled in flight. A superseded run of a pure function of the tree says
+# nothing the newer one will not, and this is not one: it is a reading of the
+# outside world at a moment, and dropping it loses that reading.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  links:
+    name: Read the external links
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # To open the tracking issue, which is the whole output of this job.
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Read every external link the documentation names
+        id: read
+        # Both streams into the report. A compile failure and a dead link are
+        # different findings and both belong in the issue; sending one of them
+        # to a log nobody opens is how this job would go quiet.
+        run: |
+          set -uo pipefail
+          if go run ./tools/externallinks > report.txt 2>&1; then
+            echo "dead=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "dead=1" >> "$GITHUB_OUTPUT"
+          fi
+          cat report.txt
+
+      - name: Raise a tracking issue where something did not answer
+        if: steps.read.outputs.dead == '1'
+        env:
+          # Passed through the environment rather than interpolated into the
+          # script, so nothing a run produces can be evaluated as shell.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: "External links in the documentation no longer answer"
+        run: |
+          set -euo pipefail
+          # One issue at a time. Without this the weekly run would file the same
+          # finding every Monday and the register would read as a machine
+          # talking to itself.
+          existing=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "already open as #${existing}; nothing filed"
+            exit 0
+          fi
+          {
+            echo "A scheduled reading of the external links found one or more that did not answer."
+            echo
+            echo "A link here is the evidence behind a claim in a document. One that does not"
+            echo "answer is either a page that moved, which is an edit to the document, or a site"
+            echo "that is down, which is worth knowing and is not worth refusing a change over."
+            echo
+            echo "What the run read:"
+            echo
+            echo '```'
+            cat report.txt
+            echo '```'
+            echo
+            echo "The run: ${RUN_URL}"
+          } > body.md
+          gh issue create --title "$TITLE" --body-file body.md --label documentation --assignee iderex
