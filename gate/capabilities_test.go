@@ -325,6 +325,36 @@ func TestAMultiLineLiteralIsNotAPath(t *testing.T) {
 	}
 }
 
+// A separator on its own is not a path. Spelling one path in the other
+// platform's separator is written strings.ReplaceAll(p, "/", `\`), and the "/"
+// in it reaches nothing, so refusing it is the false red record 0009 answers
+// with a narrower rule rather than a suppression.
+//
+// The near miss is one component further on, and it is assembled from the
+// separator rather than written out: a literal saying it here would be this file
+// holding an absolute path, which is what the leg refuses and is right to. The
+// separator constant below is the narrowing exercising itself, since this file
+// is read by the leg like any other gate tier test.
+func TestASeparatorAloneIsNotAPath(t *testing.T) {
+	const separator = "/"
+
+	for _, v := range []string{separator, separator + separator} {
+		if isAbsolutePathLiteral(v) {
+			t.Errorf("%q is a separator and was taken for a path", v)
+		}
+	}
+	for _, v := range []string{separator + "e", separator + separator + "e"} {
+		if !isAbsolutePathLiteral(v) {
+			t.Errorf("%q is one component past a separator and was not refused", v)
+		}
+	}
+	for _, p := range absolutePaths(t) {
+		if !isAbsolutePathLiteral(p) {
+			t.Errorf("the absolute path %q stopped being recognised as one", p)
+		}
+	}
+}
+
 // Record 0009 refuses a dependency the tree does not already carry, and permits
 // one it does. The two trees below differ by exactly the non-test file: with it
 // the import is the command's own dependency and the test may exercise it,

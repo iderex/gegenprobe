@@ -65,6 +65,21 @@ func legs() []leg {
 			subject: "no gate tier test source reaches for a display, elevation, a network, or a path of its own choosing",
 			run:     capabilitiesLeg,
 		},
+		{
+			name:    "dependencies",
+			subject: "the direct dependencies are the ones docs/dependencies.md argues for, their checksums verify, and a build moves neither module file",
+			run:     dependenciesLeg,
+		},
+		{
+			name:    "coverage",
+			subject: "the gate tier covers at least the floor docs/coverage-floor.md declares",
+			run:     coverageLeg,
+		},
+		{
+			name:    "reproducible build",
+			subject: "two builds of this tree produce identical bytes, and neither carries the directory they were built in",
+			run:     reproducibleBuildLeg,
+		},
 	}
 }
 

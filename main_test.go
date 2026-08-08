@@ -2,18 +2,23 @@ package main
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"testing"
 )
 
-// The tests in this file are the ones that need a built binary or the files
-// beside it, so they run from the repository root, which is where the go tool
-// puts a test binary's working directory for the root package.
+// This file carries no build constraint, so it is a gate tier file and record
+// 0009's list of forbidden capabilities applies to it. What is left here reads
+// files beside the command from a relative path, which the tier permits, and
+// runs from the repository root, which is where the go tool puts a test
+// binary's working directory for the root package.
+//
+// The tests that built the command and ran it moved to
+// main_integration_test.go, under the `integration` tag, because starting a
+// program is an import of os/exec and 0009 puts that at the top of what this
+// tier may not have. What the gate no longer asserts is written down there.
 
 // goDirective is the `go 1.24` line in go.mod. The module file is the one place
 // the floor is declared, per record 0001.
@@ -73,60 +78,5 @@ func TestGoDirectiveMatchesTheDecisionRecord(t *testing.T) {
 	if len(wrong) > 0 {
 		t.Errorf("go.mod declares Go %s and %s mentions %s. Raising the floor is a change to go.mod and to a successor record, so make the two agree.",
 			declared, recordPath, strings.Join(wrong, ", "))
-	}
-}
-
-// build compiles the command into dir and returns the path to the binary. It
-// takes the same route an operator takes, so what is asserted below is the
-// program rather than a function that happens to be called by it.
-func build(t *testing.T, dir string) string {
-	t.Helper()
-	out := filepath.Join(dir, "gegenprobe")
-	if runtime.GOOS == "windows" {
-		out += ".exe"
-	}
-	cmd := exec.Command("go", "build", "-o", out, ".")
-	if combined, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("go build -o %s .: %v\n%s", out, err, combined)
-	}
-	return out
-}
-
-func TestBuiltBinaryPrintsAVersion(t *testing.T) {
-	out, err := exec.Command(build(t, t.TempDir()), "version").Output()
-	if err != nil {
-		t.Fatalf("running the binary with `version`: %v", err)
-	}
-	if strings.TrimSpace(string(out)) == "" {
-		t.Error("`version` printed nothing, and an empty version is the one answer a bug report cannot use")
-	}
-}
-
-func TestBuiltBinaryWithNoArgumentsPrintsUsageAndExitsNonZero(t *testing.T) {
-	cmd := exec.Command(build(t, t.TempDir()))
-	combined, err := cmd.CombinedOutput()
-	if err == nil {
-		t.Error("the binary exited zero with no arguments, want non zero")
-	}
-	if !strings.Contains(string(combined), "usage:") {
-		t.Errorf("output with no arguments = %q, want the usage text", combined)
-	}
-}
-
-// Two builds of one commit have to agree on the version, which is what makes
-// the string usable as an identifier at all. This is the version half of the
-// property; the byte for byte half over the binary itself is #28.
-func TestTwoBuildsOfTheSameCommitAgreeOnTheVersion(t *testing.T) {
-	first, err := exec.Command(build(t, t.TempDir()), "version").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := exec.Command(build(t, t.TempDir()), "version").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(first) != string(second) {
-		t.Errorf("two builds of this commit reported %q and %q; a version that moves between builds identifies nothing",
-			strings.TrimSpace(string(first)), strings.TrimSpace(string(second)))
 	}
 }

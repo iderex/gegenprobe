@@ -220,14 +220,28 @@ func scanTestSource(path string, src []byte, module string, carried map[string]b
 }
 
 // isAbsolutePathLiteral narrows record 0009's "string constant beginning with /
-// or with a drive letter" by one property no path has, which is a line break.
-// A test that holds another file's source as a literal is the ordinary way to
-// write a fixture in this tree, and such a literal begins with a build
-// constraint comment often enough that without this the check would refuse its
-// own suite. The cost is that a path followed by a newline inside one literal is
-// not seen, which no path written to be used looks like.
+// or with a drive letter" by two properties no path of a test's own choosing
+// has. The item exists for a path a test picked, which is what the record says
+// it covers, and both narrowings are the record's own answer to a denylist
+// refusing something legitimate: a narrower rule rather than a suppression.
+//
+// A line break. A test that holds another file's source as a literal is the
+// ordinary way to write a fixture in this tree, and such a literal begins with a
+// build constraint comment often enough that without this the check would refuse
+// its own suite. The cost is that a path followed by a newline inside one
+// literal is not seen, which no path written to be used looks like.
+//
+// Separators and nothing else. Spelling one path in the other platform's
+// separator is written strings.ReplaceAll(p, "/", `\`), and the "/" in it names
+// no directory to reach. A drive root keeps its refusal, because "C:\" leaves a
+// drive letter behind when the separators are taken off it and naming a drive is
+// a choice. The cost is that a test writing the root directory alone and doing
+// something with it is not seen, and one component further on is.
 func isAbsolutePathLiteral(v string) bool {
 	if strings.ContainsAny(v, "\r\n") {
+		return false
+	}
+	if strings.Trim(v, `/\`) == "" {
 		return false
 	}
 	return absolutePath.MatchString(v)
