@@ -13,7 +13,7 @@ func goodFloorLines() []string {
 	return []string{
 		"# The coverage floor",
 		"",
-		"Floor: 82.2",
+		"Floor: 81.1",
 		"Last raised: 2026-08-08",
 		"",
 		"Prose about what the number does not cover.",
@@ -38,8 +38,8 @@ func TestTheFloorDocumentIsRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a well formed floor document was refused: %v", err)
 	}
-	if f.percent != 82.2 {
-		t.Errorf("floor = %v, want 82.2", f.percent)
+	if f.percent != 81.1 {
+		t.Errorf("floor = %v, want 81.1", f.percent)
 	}
 	if f.raised != "2026-08-08" {
 		t.Errorf("last raised = %q, want 2026-08-08", f.raised)
@@ -73,14 +73,14 @@ func TestEachWayTheFloorGoesMissingIsRefused(t *testing.T) {
 
 // The one thing this leg exists to do.
 func TestADropBelowTheFloorFails(t *testing.T) {
-	floor := floorRecord{percent: 82.2, raised: "2026-08-08"}
+	floor := floorRecord{percent: 81.1, raised: "2026-08-08"}
 
-	o := judgeCoverage(82.1, floor)
+	o := judgeCoverage(81.0, floor)
 
 	if o.verdict != failed {
 		t.Fatalf("coverage below the floor reported %v: %s", o.verdict, o.detail)
 	}
-	for _, want := range []string{"82.1", "82.2", "2026-08-08"} {
+	for _, want := range []string{"81.0", "81.1", "2026-08-08"} {
 		if !strings.Contains(o.detail, want) {
 			t.Errorf("the failure does not carry %s, so a reader cannot see how far it fell:\n%s", want, o.detail)
 		}
@@ -91,7 +91,7 @@ func TestADropBelowTheFloorFails(t *testing.T) {
 // refused it would be one nobody could ever satisfy on the day the floor was
 // set from the measurement.
 func TestCoverageExactlyAtTheFloorPasses(t *testing.T) {
-	o := judgeCoverage(82.2, floorRecord{percent: 82.2, raised: "2026-08-08"})
+	o := judgeCoverage(81.1, floorRecord{percent: 81.1, raised: "2026-08-08"})
 
 	if o.verdict != passed {
 		t.Fatalf("coverage exactly at the floor reported %v: %s", o.verdict, o.detail)
@@ -102,7 +102,7 @@ func TestCoverageExactlyAtTheFloorPasses(t *testing.T) {
 // printed without it. This asserts the pass and the failure both carry it, in
 // the same place as the figure.
 func TestTheNumberIsNeverPrintedWithoutWhatItDoesNotCover(t *testing.T) {
-	floor := floorRecord{percent: 82.2, raised: "2026-08-08"}
+	floor := floorRecord{percent: 81.1, raised: "2026-08-08"}
 
 	for _, o := range []outcome{judgeCoverage(90.0, floor), judgeCoverage(10.0, floor)} {
 		if !strings.Contains(o.detail, "integration harness") || !strings.Contains(o.detail, floorDoc) {
@@ -112,7 +112,7 @@ func TestTheNumberIsNeverPrintedWithoutWhatItDoesNotCover(t *testing.T) {
 }
 
 func TestARunWellAboveTheFloorSaysSo(t *testing.T) {
-	o := judgeCoverage(90.0, floorRecord{percent: 82.2, raised: "2026-08-08"})
+	o := judgeCoverage(90.0, floorRecord{percent: 81.1, raised: "2026-08-08"})
 
 	if o.verdict != passed {
 		t.Fatalf("coverage above the floor reported %v: %s", o.verdict, o.detail)
@@ -188,7 +188,7 @@ func legsThatJudgeCoverage(withCoverage bool, total float64, floor floorRecord) 
 
 func TestDisablingTheCoverageLegTurnsItsFixtureGreen(t *testing.T) {
 	root := t.TempDir()
-	floor := floorRecord{percent: 82.2, raised: "2026-08-08"}
+	floor := floorRecord{percent: 81.1, raised: "2026-08-08"}
 
 	if status := run(io.Discard, root, legsThatJudgeCoverage(true, 40.0, floor)); status == 0 {
 		t.Fatal("the gate passed a total below the floor with the leg enabled")
