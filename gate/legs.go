@@ -61,6 +61,11 @@ func legs() []leg {
 			run:     fixtureStorageLeg,
 		},
 		{
+			name:    "coverage",
+			subject: "the gate tier covers at least the floor docs/coverage-floor.md declares",
+			run:     coverageLeg,
+		},
+		{
 			name:    "reproducible build",
 			subject: "two builds of this tree produce identical bytes, and neither carries the directory they were built in",
 			run:     reproducibleBuildLeg,
