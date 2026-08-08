@@ -85,6 +85,11 @@ func capabilitiesLeg(root string) outcome {
 		return fail(err.Error())
 	}
 
+	carried, err := nonTestImports(root, module)
+	if err != nil {
+		return fail(err.Error())
+	}
+
 	var found []violation
 	read := 0
 
@@ -105,7 +110,7 @@ func capabilitiesLeg(root string) outcome {
 		if err != nil {
 			return err
 		}
-		vs, scanned, err := scanTestSource(filepath.ToSlash(path), src, module, enabled(items()))
+		vs, scanned, err := scanTestSource(filepath.ToSlash(path), src, module, carried, enabled(items()))
 		if err != nil {
 			return err
 		}
@@ -141,7 +146,7 @@ func capabilitiesLeg(root string) outcome {
 // whether the file was read at all, which is how the caller tells a file it read
 // and found nothing in from a file belonging to another tier, and a leg that
 // examined nothing from one that examined everything and passed.
-func scanTestSource(path string, src []byte, module string, on map[string]bool) ([]violation, bool, error) {
+func scanTestSource(path string, src []byte, module string, carried map[string]bool, on map[string]bool) ([]violation, bool, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, path, src, parser.ParseComments)
 	if err != nil {
@@ -171,8 +176,8 @@ func scanTestSource(path string, src []byte, module string, on map[string]bool) 
 			add(spec.Pos(), itemExec, "imports os/exec, which is how an elevation tool, a service manager, a firewall utility, a certificate store or a container engine is started")
 		case networkImports[p]:
 			add(spec.Pos(), itemNetwork, "imports "+p+", which reaches the network, loopback included")
-		case outsideTheStandardLibrary(p, module):
-			add(spec.Pos(), itemOutside, "imports "+p+", which is outside the standard library and outside this module, so what it opens is not this tree's to know")
+		case outsideTheStandardLibrary(p, module) && !carried[p]:
+			add(spec.Pos(), itemOutside, "imports "+p+", which is outside the standard library, outside this module, and not something the non-test code already depends on, so what it opens is not this tree's to know")
 		}
 	}
 
@@ -261,6 +266,52 @@ func namesAnotherTier(e constraint.Expr) bool {
 		return namesAnotherTier(x.X) || namesAnotherTier(x.Y)
 	}
 	return false
+}
+
+// nonTestImports is every package the module's own non-test source imports.
+//
+// Record 0009 refuses a dependency in a test that the tree does not already
+// carry, and that qualification is the whole of this function. A test exercising
+// something the command genuinely depends on is not reaching outside the tree,
+// and refusing it would make the ordinary way to add a dependency a reason to
+// move tests out of the gate tier, which is how a strict rule gets switched off.
+// A dependency nothing else uses is still refused, so the list cannot be widened
+// by a test alone.
+func nonTestImports(root, module string) (map[string]bool, error) {
+	carried := map[string]bool{}
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == ".git" || d.Name() == "testdata" {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".go") || strings.HasSuffix(d.Name(), "_test.go") {
+			return nil
+		}
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		f, err := parser.ParseFile(token.NewFileSet(), path, src, parser.ImportsOnly)
+		if err != nil {
+			return fmt.Errorf("%s: %w", filepath.ToSlash(path), err)
+		}
+		for _, spec := range f.Imports {
+			p, err := strconv.Unquote(spec.Path.Value)
+			if err != nil {
+				continue
+			}
+			if outsideTheStandardLibrary(p, module) {
+				carried[p] = true
+			}
+		}
+		return nil
+	})
+	return carried, err
 }
 
 // outsideTheStandardLibrary reports whether an import path names neither the

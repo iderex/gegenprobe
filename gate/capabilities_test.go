@@ -6,26 +6,26 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/iderex/gegenprobe/internal/fixture"
 )
 
 // absolutePaths reads the two path literals the cases below need. They are held
-// under testdata rather than written into this file, because a literal here
-// would be a gate tier test holding an absolute path, which is the thing the
-// leg refuses and is right to refuse. Record 0009 asks for a fixture rather than
-// a suppression where a rule catches something legitimate, and this is it.
+// as a fixture rather than written into this file, because a literal here would
+// be a gate tier test holding an absolute path, which is the thing the leg
+// refuses and is right to refuse. Record 0009 asks for a fixture rather than a
+// suppression where a rule catches something legitimate, and this is it.
 func absolutePaths(t *testing.T) []string {
 	t.Helper()
-	body, err := os.ReadFile(filepath.Join("testdata", "absolute-path-literals.txt"))
+	f, err := fixture.Load(filepath.Join("testdata", "absolute-path-literals"+fixture.Extension))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var out []string
-	for _, line := range strings.Split(strings.ReplaceAll(string(body), "\r\n", "\n"), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
+	for _, line := range strings.Split(strings.TrimSuffix(string(f.Bytes), "\n"), "\n") {
+		if line != "" {
+			out = append(out, line)
 		}
-		out = append(out, line)
 	}
 	if len(out) < 2 {
 		t.Fatalf("the fixture carries %d path(s); the cases below need a POSIX one and a Windows one", len(out))
@@ -95,7 +95,7 @@ const testModule = "github.com/iderex/gegenprobe"
 
 func scanFixture(t *testing.T, src string, on map[string]bool) []violation {
 	t.Helper()
-	vs, scanned, err := scanTestSource("x_test.go", []byte(src), testModule, on)
+	vs, scanned, err := scanTestSource("x_test.go", []byte(src), testModule, nil, on)
 	if err != nil {
 		t.Fatalf("the fixture did not parse: %v", err)
 	}
@@ -215,7 +215,7 @@ func TestAFileInAnotherTierIsNotRead(t *testing.T) {
 		t.Run(c.tier, func(t *testing.T) {
 			src := c.constraint + "\n" + tierSource("\"os/exec\"", "_ = "+strconv.Quote(posix))
 
-			vs, scanned, err := scanTestSource("x_test.go", []byte(src), testModule, enabled(items()))
+			vs, scanned, err := scanTestSource("x_test.go", []byte(src), testModule, nil, enabled(items()))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -322,6 +322,35 @@ func TestAMultiLineLiteralIsNotAPath(t *testing.T) {
 	}
 	if isAbsolutePathLiteral("") {
 		t.Error("the empty string was taken for a path")
+	}
+}
+
+// Record 0009 refuses a dependency the tree does not already carry, and permits
+// one it does. The two trees below differ by exactly the non-test file: with it
+// the import is the command's own dependency and the test may exercise it,
+// without it the test would be the only thing pulling it in.
+func TestADependencyTheNonTestCodeCarriesIsPermittedInATest(t *testing.T) {
+	const dependency = "golang.org/x/term"
+	testFile := tierSource("\""+dependency+"\"", passingStatement)
+
+	carried := moduleTree(t, map[string]string{
+		"reader/reader.go":      "package reader\n\nimport _ \"" + dependency + "\"\n",
+		"reader/reader_test.go": testFile,
+	})
+	if o := capabilitiesLeg(carried); o.verdict != passed {
+		t.Errorf("a test importing what the command itself depends on was refused: %s", o.detail)
+	}
+
+	alone := moduleTree(t, map[string]string{
+		"reader/reader.go":      "package reader\n",
+		"reader/reader_test.go": testFile,
+	})
+	o := capabilitiesLeg(alone)
+	if o.verdict != failed {
+		t.Fatalf("a dependency only a test pulls in was accepted: %v %s", o.verdict, o.detail)
+	}
+	if !strings.Contains(o.detail, "not something the non-test code already depends on") {
+		t.Errorf("the failure does not say why:\n%s", o.detail)
 	}
 }
 
