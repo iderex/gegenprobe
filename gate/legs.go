@@ -15,8 +15,9 @@ import (
 // added here and nowhere else, which is what keeps one entry point from becoming
 // two.
 //
-// The order is cheapest first, so that a run stopping early has usually stopped
-// on the thing that takes a second to fix.
+// The order is the language checks first, cheapest of them first, and then this
+// repository's own checks. A run that stops early has usually stopped on the
+// thing that takes a second to fix.
 func legs() []leg {
 	return []leg{
 		{
@@ -43,6 +44,11 @@ func legs() []leg {
 			name:    "decision index",
 			subject: "docs/decisions/README.md is derivable from the records beside it",
 			run:     func(root string) outcome { return command(root, "go", "run", "./tools/decisionindex", "-check") },
+		},
+		{
+			name:    "action pinning",
+			subject: "every action a workflow uses is pinned to a commit sha",
+			run:     actionPinningLeg,
 		},
 	}
 }
