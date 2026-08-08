@@ -1,6 +1,6 @@
 # The coverage floor
 
-Floor: 82.2
+Floor: 81.1
 Last raised: 2026-08-08
 
 The two fields above are read by the `coverage` leg of `go run ./gate`, which
@@ -26,6 +26,21 @@ about the tool.
 That sentence is repeated by the leg every time it prints the number, in the same
 place as the number, because a caveat that lives only in a document is a caveat
 nobody reads next to the figure they are about to quote.
+
+## Why it has moved
+
+82.2 to 81.1, on 2026-08-08, when the `dependencies` leg landed.
+
+That leg has to run `go mod verify` and a build, so part of it is statements only
+a process reaches. Record 0009 refuses `os/exec` in this tier, so those
+statements cannot be covered by the suite that measures them, and every leg of
+this kind that arrives lowers the percentage while covering everything a test can
+reach. The judging in that leg is at 100%; what is not covered is the shelling
+out.
+
+That is a reason about the tree rather than a number adjusted to match a run, and
+the difference is the whole point of this file. A lowering with no section here is
+the move this document exists to make visible.
 
 ## Raising it
 
