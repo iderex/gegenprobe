@@ -55,6 +55,11 @@ func legs() []leg {
 			subject: "every action a workflow uses is pinned to a commit sha",
 			run:     actionPinningLeg,
 		},
+		{
+			name:    "fixture storage",
+			subject: "every fixture is stored so that no checkout can rewrite its bytes, and says where it came from",
+			run:     fixtureStorageLeg,
+		},
 	}
 }
 
