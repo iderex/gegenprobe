@@ -1,88 +1,74 @@
-// Package cli is the command's argument handling and nothing else. It writes to
-// the writers it is given and returns an exit status rather than calling
-// os.Exit, so that every path through it is reachable from a test without
-// building a binary or trapping a process.
+// Package cli turns the arguments a command line supplies into a call and an
+// exit status. It is the only place that decides what a subcommand is called
+// and what it writes, so the command at the root of the tree holds no logic and
+// the behaviour below is testable without starting a process.
 package cli
 
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/iderex/gegenprobe/internal/version"
 )
 
-// Name is what the command calls itself in its own usage text.
-const Name = "gegenprobe"
+// name is what the program calls itself in its own messages. It is fixed rather
+// than taken from argv[0], so that a renamed or relinked binary reports the
+// same name a reader can search for.
+const name = "gegenprobe"
 
-// Summary is the one line a reader arriving at the usage text gets first.
-const Summary = "A harness that runs the atomic structure codes against each other systematically."
+// usage is the whole of what this command can do today. There are two
+// subcommands and neither of them runs a case yet, which the text says plainly:
+// a usage message that describes an intention rather than a binary sends an
+// operator looking for a flag that does not exist.
+const usage = `gegenprobe compares what several atomic structure codes say about the same case.
 
-// Exit statuses. Two rather than one for misuse follows the convention a shell
-// user already has, where one is a failed job and two is a misused command.
-const (
-	statusOK     = 0
-	statusMisuse = 2
-)
+usage:
+    gegenprobe <subcommand>
 
-type command struct {
-	name    string
-	summary string
-	run     func(stdout io.Writer)
-}
+subcommands:
+    version    print the version of this binary
+    help       print this text
 
-// commands is the whole set. It is a function rather than a package variable so
-// that no other package can add to it from an init, which is how a command set
-// becomes something nobody can enumerate by reading.
-func commands() []command {
-	return []command{
-		{
-			name:    "version",
-			summary: "print the version of this build",
-			run:     func(stdout io.Writer) { fmt.Fprintln(stdout, version.Describe()) },
-		},
-		{
-			name:    "help",
-			summary: "print this usage",
-			run:     usage,
-		},
-	}
-}
+Nothing here runs a case yet. This binary is the skeleton the rest is added to,
+and it is honest about being one.
+`
 
-// Run executes one subcommand and returns the exit status. Usage goes to stderr
-// when it is the answer to a mistake and to stdout when it is what was asked
-// for, so that a reader piping the command somewhere gets what they asked for
-// and a script gets its diagnostics out of the way of its data.
+// Run executes one invocation and returns the exit status. Everything it writes
+// goes to one of the two writers it is given rather than to the process
+// streams, so a test reads the output instead of capturing a process.
+//
+// The status is zero where the command did what was asked, and two where the
+// arguments were not something this command can do. Two rather than one, so
+// that a caller can tell a usage mistake from a failure of the work, on the day
+// there is work to fail.
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintf(stderr, "%s: no subcommand given\n", Name)
-		usage(stderr)
-		return statusMisuse
+		fmt.Fprintf(stderr, "%s: no subcommand given.\n\n", name)
+		fmt.Fprint(stderr, usage)
+		return 2
 	}
 
-	name, rest := args[0], args[1:]
-	for _, c := range commands() {
-		if c.name != name {
-			continue
+	switch args[0] {
+	case "version":
+		if len(args) > 1 {
+			fmt.Fprintf(stderr, "%s: version takes no arguments, and got: %s\n", name, strings.Join(args[1:], " "))
+			return 2
 		}
-		if len(rest) != 0 {
-			fmt.Fprintf(stderr, "%s: %s takes no arguments, got %d\n", Name, c.name, len(rest))
-			usage(stderr)
-			return statusMisuse
+		fmt.Fprintln(stdout, version.Resolve())
+		return 0
+
+	case "help":
+		if len(args) > 1 {
+			fmt.Fprintf(stderr, "%s: help takes no arguments, and got: %s\n", name, strings.Join(args[1:], " "))
+			return 2
 		}
-		c.run(stdout)
-		return statusOK
-	}
+		fmt.Fprint(stdout, usage)
+		return 0
 
-	fmt.Fprintf(stderr, "%s: unknown subcommand %q\n", Name, name)
-	usage(stderr)
-	return statusMisuse
-}
-
-func usage(w io.Writer) {
-	fmt.Fprintf(w, "usage: %s <subcommand>\n\n", Name)
-	fmt.Fprintf(w, "%s\n\n", Summary)
-	fmt.Fprintln(w, "Subcommands:")
-	for _, c := range commands() {
-		fmt.Fprintf(w, "  %-9s %s\n", c.name, c.summary)
+	default:
+		fmt.Fprintf(stderr, "%s: %q is not a subcommand of this binary.\n\n", name, args[0])
+		fmt.Fprint(stderr, usage)
+		return 2
 	}
 }

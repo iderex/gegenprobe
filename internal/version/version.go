@@ -1,10 +1,21 @@
-// Package version answers one question, what to call this build, and is
-// required never to answer it with an empty string.
+// Package version answers one question: which build of this program is
+// running.
 //
-// Nothing here reads the clock, the build host or an absolute path, so two
-// builds of one commit agree on what they print. That is a property the
-// reproducible build work depends on and it is cheaper to hold from the start
-// than to recover later.
+// A version string that is guessed reads exactly like one that is known, and
+// the place that difference matters is a bug report from an operator whose
+// numbers disagree with somebody else's. So every answer here says where it
+// came from, and the answer for a build that cannot know is a sentence saying
+// so rather than an empty string or a zero.
+//
+// Three sources, in this order. A release build passes the tag in through the
+// linker. A build from a checkout takes the commit from the build information
+// the toolchain records. A build from an unpacked tarball has neither, and gets
+// a sentence.
+//
+// Nothing here reads the clock, the build host or the build directory, so two
+// builds of one commit produce one string. That is a precondition of the
+// reproducibility work in #28 rather than a nicety, and #28 is what proves it
+// over the binary rather than over this function.
 package version
 
 import (
@@ -12,82 +23,53 @@ import (
 	"strings"
 )
 
-// Set at link time by a release build:
+// stamped is empty in every build except a release, which sets it to the tag:
 //
-//	go build -ldflags "-X github.com/iderex/gegenprobe/internal/version.tag=v0.1.0"
+//	go build -ldflags "-X github.com/iderex/gegenprobe/internal/version.stamped=v0.1.0"
 //
-// Neither is required. When tag is empty the revision is used, and when the
-// build carries no revision either, Describe says so rather than inventing one.
-var (
-	tag    string
-	commit string
-)
+// It is a variable rather than a constant because the linker can only write to
+// a variable, and it is unexported so that the only way to set it is that flag.
+var stamped string
 
-// Unknown is what a build with no repository metadata at all says about itself.
-// It is a sentence rather than an empty string or a zero version because a
-// clone unpacked from a tarball genuinely does not know, and a build claiming a
-// version it cannot know is the failure this constant exists to prevent.
-const Unknown = "unknown, built without repository metadata"
+// shortRevision is how much of a commit sha the version string carries. Twelve
+// is long enough to be unambiguous in a repository of this size and short
+// enough to be read out over a call.
+const shortRevision = 12
 
-// shortCommit is how many hex digits of a revision are printed. Twelve is long
-// enough to be unambiguous in a repository of this size and short enough to
-// read back over a phone.
-const shortCommit = 12
-
-// Stamp is everything a build knows about where it came from.
-type Stamp struct {
-	Tag      string
-	Commit   string
-	Modified bool
-}
-
-// Describe returns the string the version subcommand prints. It is never empty.
-func Describe() string { return describe(current()) }
-
-// current merges what the linker was told with what the toolchain recorded.
-// A value passed at link time wins, because a release build states its tag
-// deliberately and the toolchain cannot know it.
-func current() Stamp {
-	s := Stamp{Tag: tag, Commit: commit}
+// Resolve returns the version string this build should print.
+func Resolve() string {
+	if tag := strings.TrimSpace(stamped); tag != "" {
+		return tag
+	}
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return s
+		return "unknown, this build carries no build information"
 	}
-	for _, setting := range info.Settings {
-		switch setting.Key {
+	return fromBuildInfo(info)
+}
+
+// fromBuildInfo derives the version from what the toolchain recorded about the
+// checkout it built from. It is separate from Resolve so the three shapes it
+// has to handle can be tested without arranging three builds.
+func fromBuildInfo(info *debug.BuildInfo) string {
+	var revision, modified string
+	for _, s := range info.Settings {
+		switch s.Key {
 		case "vcs.revision":
-			if s.Commit == "" {
-				s.Commit = setting.Value
-			}
+			revision = s.Value
 		case "vcs.modified":
-			s.Modified = setting.Value == "true"
+			modified = s.Value
 		}
 	}
-	return s
-}
 
-func describe(s Stamp) string {
-	var b strings.Builder
-	switch {
-	case s.Tag != "":
-		b.WriteString(s.Tag)
-	case s.Commit != "":
-		b.WriteString("untagged, built from commit ")
-		b.WriteString(short(s.Commit))
-	default:
-		// No tag and no revision. Whether the tree was modified is not
-		// knowable either, so nothing is appended to this.
-		return Unknown
+	if revision == "" {
+		return "unknown, this build has no git metadata to take a version from"
 	}
-	if s.Modified {
-		b.WriteString(", with uncommitted changes")
+	if len(revision) > shortRevision {
+		revision = revision[:shortRevision]
 	}
-	return b.String()
-}
-
-func short(commit string) string {
-	if len(commit) <= shortCommit {
-		return commit
+	if modified == "true" {
+		return revision + ", built from a modified working tree"
 	}
-	return commit[:shortCommit]
+	return revision
 }

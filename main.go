@@ -1,24 +1,21 @@
-// Command gegenprobe is the harness. Everything an operator installs is this one
-// binary, which is the point of the language decision in
-// docs/decisions/0001-the-harness-is-written-in-go.md.
+// Command gegenprobe runs a case through several atomic structure codes and
+// says where they agree.
 //
-// This file is deliberately thin. It reads no arguments, holds no defaults and
-// makes no decisions; it hands os.Args to internal/cli and turns the result into
-// an exit status. The layout the rest of the tree adds to is:
+// This file is the whole of the command. It reads the arguments the operating
+// system handed over, hands them to one function, and turns what that function
+// returns into an exit status. Nothing else belongs here.
 //
-//	main.go            the entry point, and nothing that a test would have to
-//	                   build a binary to reach
-//	internal/<concern> one package per concern, each nameable in a word: the
-//	                   case loader, the runner, a reader, the comparison, the
-//	                   report. A package is added when a concern arrives, not
-//	                   ahead of it.
-//	tools/<name>       commands that are run against the tree rather than
-//	                   shipped in the binary
+// That is the package layout rule for this repository, decided here because
+// every later issue adds to it. One package under internal/ per concern, named
+// for the concern rather than for the layer, and the command at the root stays
+// thin enough that there is never a reason to write a test against it that is
+// really a test of something else. A concern that grows a second responsibility
+// becomes a second package rather than a second file in the first one.
 //
-// The rule that keeps this file thin is that logic lives where it can be tested
-// without a subprocess. Anything reachable only by running the binary is
-// something the suite has to build to look at, and a suite that builds is a
-// suite people stop running.
+// The rule is a convention until something refuses a violation of it. Nothing
+// in this tree does today; the repository invariant lint in the quality
+// milestone is where an import graph would be judged, and until it lands this
+// comment is a description.
 package main
 
 import (

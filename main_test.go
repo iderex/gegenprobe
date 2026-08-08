@@ -1,152 +1,82 @@
 package main
 
 import (
-	"bytes"
-	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
+	"sort"
 	"strings"
 	"testing"
 )
 
-// languageDecisionRecord is the record the language decision issue fixes by
-// name. The minimum Go version lives there and in go.mod, and this test is what
-// stops the two from drifting apart.
-const languageDecisionRecord = "docs/decisions/0001-the-harness-is-written-in-go.md"
+// This file carries no build constraint, so it is a gate tier file and record
+// 0009's list of forbidden capabilities applies to it. What is left here reads
+// files beside the command from a relative path, which the tier permits, and
+// runs from the repository root, which is where the go tool puts a test
+// binary's working directory for the root package.
+//
+// The tests that built the command and ran it moved to
+// main_integration_test.go, under the `integration` tag, because starting a
+// program is an import of os/exec and 0009 puts that at the top of what this
+// tier may not have. What the gate no longer asserts is written down there.
 
-// goDirective matches the go line of a module file and nothing else. A godebug
-// or a toolchain line does not match, because the token has to end at the space.
-var goDirective = regexp.MustCompile(`(?m)^go[ \t]+(\S+)[ \t\r]*$`)
+// goDirective is the `go 1.24` line in go.mod. The module file is the one place
+// the floor is declared, per record 0001.
+var goDirective = regexp.MustCompile(`(?m)^go (\d+(?:\.\d+)+)\s*$`)
 
-// goVersionInText matches every Go version the record names, in prose and in
-// the module file it quotes, so a record naming two different numbers is caught
-// as well as a record disagreeing with go.mod.
-var goVersionInText = regexp.MustCompile(`(?i)\bgo[ \t]+(\d+\.\d+(?:\.\d+)?)\b`)
+// versionInProse is any mention of a Go version anywhere in a record, in either
+// case, so that a second mention added later is checked rather than ignored.
+var versionInProse = regexp.MustCompile(`(?i)\bgo (\d+(?:\.\d+)+)`)
 
-func TestGoDirectiveMatchesTheLanguageDecisionRecord(t *testing.T) {
-	mod, err := os.ReadFile("go.mod")
-	if err != nil {
-		t.Fatalf("reading go.mod: %v", err)
-	}
-	m := goDirective.FindSubmatch(mod)
-	if m == nil {
-		t.Fatal("go.mod carries no go directive")
-	}
-	declared := string(m[1])
-
-	record, err := os.ReadFile(filepath.FromSlash(languageDecisionRecord))
-	if err != nil {
-		t.Fatalf("the minimum Go version is fixed by %s and go.mod restates it as %s; the record could not be read: %v",
-			languageDecisionRecord, declared, err)
-	}
-
-	named := goVersionInText.FindAllSubmatch(record, -1)
-	if len(named) == 0 {
-		t.Fatalf("%s names no Go version, and go.mod says go %s", languageDecisionRecord, declared)
-	}
-	for _, n := range named {
-		if got := string(n[1]); got != declared {
-			t.Errorf("%s names Go %s; go.mod says go %s", languageDecisionRecord, got, declared)
-		}
-	}
-}
-
-// builtCommand is linked once for the whole package. Linking is the expensive
-// part of this suite, so a test that does not specifically need a second binary
-// uses this one.
-var builtCommand string
-
-func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "gegenprobe-build")
-	if err != nil {
-		panic(err)
-	}
-	builtCommand, err = build(dir)
-	if err != nil {
-		os.RemoveAll(dir)
-		panic(err)
-	}
-	status := m.Run()
-	os.RemoveAll(dir)
-	os.Exit(status)
-}
-
-// The built binary is what an operator has, so the two conditions about what it
-// prints are checked on the binary rather than on the package behind it.
-func TestBuiltCommandWithoutArgumentsPrintsUsageAndFails(t *testing.T) {
-	stdout, stderr, status := runBuilt(t, builtCommand)
-	if status == 0 {
-		t.Error("the command succeeded with no arguments; it has to fail")
-	}
-	if !strings.Contains(stderr, "usage: gegenprobe") {
-		t.Errorf("no usage on stderr, got %q", stderr)
-	}
-	if stdout != "" {
-		t.Errorf("a misuse wrote to stdout: %q", stdout)
-	}
-}
-
-func TestBuiltCommandPrintsAVersion(t *testing.T) {
-	stdout, stderr, status := runBuilt(t, builtCommand, "version")
-	if status != 0 {
-		t.Errorf("version exited %d, stderr %q", status, stderr)
-	}
-	if strings.TrimSpace(stdout) == "" {
-		t.Error("version printed nothing")
-	}
-}
-
-// Nothing in the version string may come from the clock, the build host or a
-// path on it. A second, independent build of the same tree is the cheapest way
-// to prove that, and it is the property the reproducible build work rests on.
-func TestASecondBuildOfTheSameTreeAgreesOnTheVersion(t *testing.T) {
-	second, err := build(t.TempDir())
+// Record 0001 fixes the minimum Go version and says it is declared in go.mod
+// rather than restated. The record still has to name a number for a reader, so
+// the two can disagree, and a person noticing that is not a mechanism. This is.
+//
+// It checks every version the record mentions rather than the first, because
+// the way this drifts is a raise that updates one of the two mentions.
+func TestGoDirectiveMatchesTheDecisionRecord(t *testing.T) {
+	gomod, err := os.ReadFile("go.mod")
 	if err != nil {
 		t.Fatal(err)
 	}
-	first, _, status := runBuilt(t, builtCommand, "version")
-	if status != 0 {
-		t.Fatalf("the first build exited %d on version", status)
+	m := goDirective.FindSubmatch(gomod)
+	if m == nil {
+		t.Fatal("go.mod carries no `go` directive, so there is no floor to compare against")
 	}
-	again, _, status := runBuilt(t, second, "version")
-	if status != 0 {
-		t.Fatalf("the second build exited %d on version", status)
-	}
-	if first != again {
-		t.Errorf("two builds of one tree printed %q then %q", first, again)
-	}
-}
+	declared := string(m[1])
 
-func build(dir string) (string, error) {
-	name := "gegenprobe"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	path := filepath.Join(dir, name)
-	out, err := exec.Command("go", "build", "-o", path, ".").CombinedOutput()
+	matches, err := filepath.Glob(filepath.Join("docs", "decisions", "0001-*.md"))
 	if err != nil {
-		return "", fmt.Errorf("go build: %w\n%s", err, out)
+		t.Fatal(err)
 	}
-	return path, nil
-}
+	if len(matches) != 1 {
+		t.Fatalf("found %d files matching docs/decisions/0001-*.md, want exactly 1: %v", len(matches), matches)
+	}
+	record, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The message names a path a reader will retype, so it is written with the
+	// separator the tree uses rather than the one this platform happens to.
+	recordPath := filepath.ToSlash(matches[0])
 
-func runBuilt(t *testing.T, bin string, args ...string) (stdout, stderr string, status int) {
-	t.Helper()
-	cmd := exec.Command(bin, args...)
-	var out, errOut bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &errOut
-	err := cmd.Run()
-	if err != nil {
-		var exit *exec.ExitError
-		if !errors.As(err, &exit) {
-			t.Fatalf("running %s: %v", bin, err)
+	mentioned := map[string]bool{}
+	for _, m := range versionInProse.FindAllStringSubmatch(string(record), -1) {
+		mentioned[m[1]] = true
+	}
+	if len(mentioned) == 0 {
+		t.Fatalf("%s mentions no Go version at all, so the record no longer says what the floor is", recordPath)
+	}
+
+	var wrong []string
+	for v := range mentioned {
+		if v != declared {
+			wrong = append(wrong, v)
 		}
-		status = exit.ExitCode()
 	}
-	return out.String(), errOut.String(), status
+	sort.Strings(wrong)
+	if len(wrong) > 0 {
+		t.Errorf("go.mod declares Go %s and %s mentions %s. Raising the floor is a change to go.mod and to a successor record, so make the two agree.",
+			declared, recordPath, strings.Join(wrong, ", "))
+	}
 }

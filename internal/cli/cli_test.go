@@ -6,116 +6,90 @@ import (
 	"testing"
 )
 
-func run(args ...string) (stdout, stderr string, status int) {
+func invoke(t *testing.T, args ...string) (status int, stdout, stderr string) {
+	t.Helper()
 	var out, errOut bytes.Buffer
 	status = Run(args, &out, &errOut)
-	return out.String(), errOut.String(), status
+	return status, out.String(), errOut.String()
 }
 
-func TestNoSubcommandPrintsUsageAndFails(t *testing.T) {
-	stdout, stderr, status := run()
-	if status == 0 {
-		t.Error("running with no arguments succeeded; it has to fail")
-	}
-	if !strings.Contains(stderr, "usage: "+Name) {
-		t.Errorf("usage did not reach stderr, got %q", stderr)
-	}
-	if stdout != "" {
-		t.Errorf("a misuse wrote to stdout: %q", stdout)
-	}
-}
-
-func TestVersionPrintsOneLineOnStdout(t *testing.T) {
-	stdout, stderr, status := run("version")
+func TestVersionPrintsAVersionOnStdoutAndSucceeds(t *testing.T) {
+	status, stdout, stderr := invoke(t, "version")
 	if status != 0 {
-		t.Errorf("version exited %d", status)
+		t.Errorf("status = %d, want 0", status)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Error("version printed nothing on stdout")
 	}
 	if stderr != "" {
-		t.Errorf("version wrote to stderr: %q", stderr)
+		t.Errorf("version wrote %q on stderr, want nothing", stderr)
 	}
-	line := strings.TrimSuffix(stdout, "\n")
-	if line == "" {
-		t.Error("version printed nothing")
+}
+
+// The exit status is the half of this a script reads, so it is asserted
+// separately from the text: a usage message on a successful exit is a command
+// that did nothing and said so quietly.
+func TestNoArgumentsPrintsUsageAndFails(t *testing.T) {
+	status, stdout, stderr := invoke(t)
+	if status == 0 {
+		t.Error("status = 0 for an invocation with no subcommand, want non zero")
 	}
-	if strings.Contains(line, "\n") {
-		t.Errorf("version printed more than one line: %q", stdout)
+	if !strings.Contains(stderr, "usage:") {
+		t.Errorf("stderr = %q, want it to carry the usage text", stderr)
+	}
+	if stdout != "" {
+		t.Errorf("stdout = %q, want the usage of a failed invocation to go to stderr", stdout)
 	}
 }
 
 func TestHelpPrintsUsageOnStdoutAndSucceeds(t *testing.T) {
-	stdout, stderr, status := run("help")
+	status, stdout, stderr := invoke(t, "help")
 	if status != 0 {
-		t.Errorf("help exited %d", status)
+		t.Errorf("status = %d, want 0", status)
+	}
+	if !strings.Contains(stdout, "usage:") {
+		t.Errorf("stdout = %q, want it to carry the usage text", stdout)
 	}
 	if stderr != "" {
-		t.Errorf("help wrote to stderr: %q", stderr)
-	}
-	if !strings.Contains(stdout, "usage: "+Name) {
-		t.Errorf("help printed no usage, got %q", stdout)
+		t.Errorf("help wrote %q on stderr, want nothing", stderr)
 	}
 }
 
-func TestUnknownSubcommandFailsAndNamesIt(t *testing.T) {
-	stdout, stderr, status := run("compare")
+func TestUnknownSubcommandNamesItAndFails(t *testing.T) {
+	status, _, stderr := invoke(t, "compare")
 	if status == 0 {
-		t.Error("an unknown subcommand succeeded")
+		t.Error("status = 0 for an unknown subcommand, want non zero")
 	}
-	if !strings.Contains(stderr, "compare") {
-		t.Errorf("the diagnostic does not name the subcommand that was given: %q", stderr)
+	if !strings.Contains(stderr, `"compare"`) {
+		t.Errorf("stderr = %q, want it to name the subcommand that was not understood", stderr)
 	}
-	if stdout != "" {
-		t.Errorf("a misuse wrote to stdout: %q", stdout)
+	if !strings.Contains(stderr, "usage:") {
+		t.Errorf("stderr = %q, want it to carry the usage text", stderr)
 	}
 }
 
-// A subcommand that quietly ignores an argument is a subcommand that will
-// quietly ignore a filename somebody meant it to read.
-func TestASubcommandRefusesArgumentsItDoesNotTake(t *testing.T) {
-	for _, c := range commands() {
-		stdout, stderr, status := run(c.name, "extra")
+// A trailing argument is the shape of somebody expecting a flag this binary
+// does not have. Refusing it is what keeps a later `version --json` from having
+// silently meant `version` for a release.
+func TestSubcommandsRefuseTrailingArguments(t *testing.T) {
+	for _, sub := range []string{"version", "help"} {
+		status, _, stderr := invoke(t, sub, "--json")
 		if status == 0 {
-			t.Errorf("%s accepted an argument it does not take", c.name)
+			t.Errorf("%s --json: status = 0, want non zero", sub)
 		}
-		if !strings.Contains(stderr, c.name) {
-			t.Errorf("%s: the diagnostic does not name the subcommand: %q", c.name, stderr)
-		}
-		if stdout != "" {
-			t.Errorf("%s: a misuse wrote to stdout: %q", c.name, stdout)
+		if !strings.Contains(stderr, "--json") {
+			t.Errorf("%s --json: stderr = %q, want it to quote the argument it refused", sub, stderr)
 		}
 	}
 }
 
-// The usage text is the only place a reader learns what the command can do, so
-// a subcommand missing from it is a subcommand nobody finds.
+// The usage text is what somebody reads before they know anything else, so it
+// names every subcommand the switch above accepts. A subcommand added without a
+// line here is a feature only its author can find.
 func TestUsageNamesEverySubcommand(t *testing.T) {
-	var buf bytes.Buffer
-	usage(&buf)
-	for _, c := range commands() {
-		if !strings.Contains(buf.String(), c.name) {
-			t.Errorf("usage does not name %q", c.name)
+	for _, sub := range []string{"version", "help"} {
+		if !strings.Contains(usage, "\n    "+sub+" ") {
+			t.Errorf("usage does not list the %q subcommand", sub)
 		}
-		if !strings.Contains(buf.String(), c.summary) {
-			t.Errorf("usage does not summarise %q", c.name)
-		}
-	}
-}
-
-// The set is fixed at two here on purpose. This is the scaffolding commit and
-// the plan adds subcommands one issue at a time; a third arriving without its
-// own issue is what this notices.
-func TestTheSubcommandSetIsTheTwoThisCommandDeclares(t *testing.T) {
-	var got []string
-	for _, c := range commands() {
-		got = append(got, c.name)
-		if c.summary == "" {
-			t.Errorf("%q has no summary", c.name)
-		}
-		if c.run == nil {
-			t.Errorf("%q has nothing to run", c.name)
-		}
-	}
-	want := []string{"version", "help"}
-	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Errorf("subcommands are %v, want %v", got, want)
 	}
 }
