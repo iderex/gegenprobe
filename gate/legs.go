@@ -41,6 +41,11 @@ func legs() []leg {
 			run:     func(root string) outcome { return command(root, "go", "test", "./...") },
 		},
 		{
+			name:    "decision records",
+			subject: "every record under docs/decisions follows the format 0000 fixes",
+			run:     decisionRecordsLeg,
+		},
+		{
 			name:    "decision index",
 			subject: "docs/decisions/README.md is derivable from the records beside it",
 			run:     func(root string) outcome { return command(root, "go", "run", "./tools/decisionindex", "-check") },
