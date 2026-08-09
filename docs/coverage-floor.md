@@ -1,6 +1,6 @@
 # The coverage floor
 
-Floor: 80.4
+Floor: 78.5
 Last raised: 2026-08-08
 
 The two fields above are read by the `coverage` leg of `go run ./gate`, which
@@ -56,7 +56,31 @@ date records when the floor last went up and the leg quotes it beside the number
 so moving it on a lowering would turn that sentence into one saying the opposite
 of what happened.
 
-Two lowerings in two days is a pattern rather than an incident, and it is the one
+80.4 to 78.5, on 2026-08-09, when the `file attributes` and `recorded bytes`
+legs landed. The same reason a third time, and the larger step is worth saying
+why. Both legs read git: one asks it which files the tree tracks, and the other
+takes a fixture holding carriage returns through `git add` and a checkout inside
+a throwaway repository, to find out whether the declaration protects those bytes
+rather than only claiming to. The second is the more expensive one, because
+proving a round trip means making one, and record 0009 refuses `os/exec` in this
+tier for the tests that would reach it.
+
+What can be covered is covered. The judging in `gate/attributes.go` is at 100% of
+statements, over declarations differing from a passing pair by one line, and what
+is not is the shelling out and the two legs wrapped around it:
+
+```
+go test ./... -coverprofile=<profile> -covermode=set
+go tool cover -func=<profile>
+judgeTypes   100.0%
+namedTypes   100.0%
+typeNamedBy  100.0%
+fileType     100.0%
+movedBytes   100.0%
+total:       78.6%
+```
+
+Three lowerings in two days is a pattern rather than an incident, and it is the one
 this file predicts: every leg that has to run something lowers the percentage
 while covering everything a test in this tier can reach. What the number is
 turning into is a floor over the judging with the process boundary of each leg

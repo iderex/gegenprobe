@@ -1,0 +1,33 @@
+# What must never reach a commit here. The first three sections are the ordinary
+# half. The last one is the reason this file is in the same issue as the
+# attributes beside it rather than in a tidying change of its own.
+
+# Build output. The command builds to a binary named for the module, and a cross
+# build writes one per target.
+/gegenprobe
+/gegenprobe.exe
+/dist/
+*.exe
+*.test
+
+# What a measuring run leaves behind.
+*.out
+*.prof
+
+# Run directories. A run writes a bundle and the raw output of every code it
+# started, and a bundle can carry a host name, a user name, an absolute path or
+# a case nobody has published yet. None of that is this repository's to hold,
+# and the publish subcommand is the only route by which any of it is meant to
+# leave a machine.
+/run/
+/runs/
+
+# Operator supplied source. Several participating codes reach a machine only
+# from a path the operator provides: one is distributed under terms allowing a
+# single licensee and their research group to hold a copy, one states no terms
+# at all, and one circulates in ports with none travelling alongside. Somebody
+# following the operator documentation drops a copy beside the recipe that
+# builds it, and a stray `git add -A` would then offer to redistribute a code
+# this repository has no permission to carry. That is what this rule prevents,
+# and it is why it is not tidiness.
+recipes/**/source/

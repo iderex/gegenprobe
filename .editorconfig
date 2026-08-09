@@ -1,0 +1,26 @@
+# What an editor does to a file here, written to match .gitattributes beside it.
+# Git decides what reaches the object; an editor decides what reaches the file,
+# and it writes last. Declaring one without the other leaves the two undoing
+# each other on every save.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.go]
+indent_style = tab
+
+[*.{md,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# A fixture is recorded bytes. Trimming a trailing space or adding a final
+# newline here would be the editor doing exactly what the attributes file takes
+# away from git, for the same reason and with the same result: a test that goes
+# on passing while it reads a file nobody collected.
+[*.fixture]
+insert_final_newline = false
+trim_trailing_whitespace = false
