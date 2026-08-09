@@ -172,7 +172,22 @@ This file is #58. The merge column is #82, which decides which checks become
 preconditions and brings the ruleset to match. #83 runs the gate suite on a
 machine where the capabilities the tests are forbidden to reach are actually
 absent, which is a statement about where a suite runs rather than about which
-checks exist.
+checks exist. It landed as `.github/workflows/tier-without-capabilities.yml`,
+kept honest by the leg `capability absence job`, and it is the same tier as the
+`build` row above rather than a check beside it.
+
+Where that job meets a runner it cannot take a capability away from, it prints
+which one, and the line belongs here. There is none today, and the section
+below is where one would go.
+
+## What the capability absence job could not establish
+
+Nothing so far. Each line here names a capability
+`.github/workflows/tier-without-capabilities.yml` could not remove on the runner
+it was given, so that a green tick on that job is read as covering the rest and
+not this. An empty section is the claim that the run established all four, and
+it is checked by reading that job's own output rather than by anything in this
+tree.
 
 ## What this table does not do
 

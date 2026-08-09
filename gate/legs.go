@@ -96,6 +96,11 @@ func legs() []leg {
 			run:     capabilitiesLeg,
 		},
 		{
+			name:    "capability absence job",
+			subject: "the job that runs the gate tier where those capabilities are absent still establishes each one, runs no other tier, and measures no coverage",
+			run:     capabilityAbsenceLeg,
+		},
+		{
 			name:    "package boundaries",
 			subject: "every edge inside this module is one docs/package-boundaries.md permits",
 			run:     packageBoundariesLeg,
