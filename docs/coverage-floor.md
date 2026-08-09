@@ -1,6 +1,6 @@
 # The coverage floor
 
-Floor: 81.1
+Floor: 80.4
 Last raised: 2026-08-08
 
 The two fields above are read by the `coverage` leg of `go run ./gate`, which
@@ -41,6 +41,28 @@ out.
 That is a reason about the tree rather than a number adjusted to match a run, and
 the difference is the whole point of this file. A lowering with no section here is
 the move this document exists to make visible.
+
+81.1 to 80.4, on 2026-08-09, when the `commit hygiene` leg landed. It is the same
+reason again and it is worth writing rather than pointing at. That leg reads git,
+so resolving a range, asking for the log and turning a failure to read history
+into a verdict are statements only a process reaches, and record 0009 refuses
+`os/exec` in this tier for the tests that would reach them. What can be covered
+is covered: the judging in `internal/commit` is at 100% of statements, over
+fixtures holding recorded ranges, and what is not is the shelling out and the two
+thin callers around it.
+
+The `Last raised` field above is unchanged, because this is not a raise. That
+date records when the floor last went up and the leg quotes it beside the number,
+so moving it on a lowering would turn that sentence into one saying the opposite
+of what happened.
+
+Two lowerings in two days is a pattern rather than an incident, and it is the one
+this file predicts: every leg that has to run something lowers the percentage
+while covering everything a test in this tier can reach. What the number is
+turning into is a floor over the judging with the process boundary of each leg
+subtracted from it, and at some point the honest repair is to measure the two
+separately rather than to keep taking a point off a single figure. That is not
+done here, and this paragraph is the record that it is owed.
 
 ## Raising it
 

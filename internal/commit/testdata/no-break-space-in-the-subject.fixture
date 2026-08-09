@@ -1,0 +1,12 @@
+Code: hand-written
+Version: not applicable
+Case: the passing commit with one space before the issue reference replaced by U+00A0
+Kept: the whole record, in the field order tools/commithygiene asks git for
+
+NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2Nh9OaWxzIExlaG5lbiA8MzA2
+MDM0MjMraWRlcmV4QHVzZXJzLm5vcmVwbHkuZ2l0aHViLmNvbT4fMDAwMDAwMDAwMDAwMDAwMDAw
+MDAwMDAwMDAwMDAwMDAwMDAwMDAwMB9SZWZ1c2UgYSBjb21taXQgd2hvc2Ugc3ViamVjdCBuYW1l
+cyBubyBpc3N1ZcKgKCM2NSkKClRoZSBzdWJqZWN0IGlzIHRoZSBsaW5lIHRoYXQgc3Vydml2ZXMg
+aW50byBhIGxvZyBsaXN0aW5nLCBhIGJsYW1lIHZpZXcgYW5kIGEKYmlzZWN0IHJ1biwgc28gYSBs
+aW5rIHRoYXQgbGl2ZXMgb25seSBpbiB0aGUgYm9keSBpcyBhYnNlbnQgd2hlcmUgc29tZWJvZHkg
+aXMKbG9va2luZyBmb3IgaXQuCg==
