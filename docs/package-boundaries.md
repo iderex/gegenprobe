@@ -90,6 +90,20 @@ lets the same judgement serve the leg and the command without either holding a
 copy of it. Its tests read recorded ranges, which is the fixture reader and
 nothing more.
 
+## internal/model
+
+Decision: 0004
+May-import: nothing
+May-import-in-tests: internal/fixture
+
+The types every reader produces and every later stage consumes, and the schema
+generated from them. 0004 makes it the thing the readers, the comparison and the
+renderer all agree through, so it depends on none of them: an edge from here into
+a reader would make the shared vocabulary a participant in one code's output.
+
+Its tests read a stored bundle from a format this build does not read, which is
+the fixture reader and nothing more.
+
 ## internal/golden
 
 Decision: 0009
@@ -154,5 +168,8 @@ change to it.
 
 It does not read the schema. The other half of #67 asks that every exported type
 the bundle carries be covered by the schema and every schema field correspond to
-a type field, checked in both directions. There is no model and no schema in this
-tree yet, so that half is not implemented and this file does not imply it is.
+a type field, checked in both directions. The model and the schema are now in the
+tree, in `internal/model`, and that comparison is asserted by that package's own
+suite rather than by this leg. Whether the two belong behind one leg of the gate
+or two is what #67 still holds open, and nothing here implies this leg makes the
+comparison.
