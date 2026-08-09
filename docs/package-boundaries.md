@@ -166,10 +166,13 @@ It says nothing about the standard library or about anything outside this module
 `docs/dependencies.md` holds that surface and the `dependencies` leg refuses a
 change to it.
 
-It does not read the schema. The other half of #67 asks that every exported type
-the bundle carries be covered by the schema and every schema field correspond to
-a type field, checked in both directions. The model and the schema are now in the
-tree, in `internal/model`, and that comparison is asserted by that package's own
-suite rather than by this leg. Whether the two belong behind one leg of the gate
-or two is what #67 still holds open, and nothing here implies this leg makes the
-comparison.
+It does not read the schema. The other half of the conformance work asks that
+every type a bundle carries be covered by the schema and every schema field
+correspond to a type field, checked in both directions. That comparison is made,
+and it is made in `internal/model`, over the type set the schema is generated
+from, by that package's own suite in the gate tier. It is deliberately not a leg
+here: this leg reads the graph the toolchain reports and that one reads a type
+set, which are two sources, and one leg named for conformance that reads two
+unrelated things is the shape that later gets split. What each covers is said in
+the run by two lines rather than by one, and both come from 0004, which makes the
+model the thing every reader and every later stage agrees through.

@@ -27,37 +27,92 @@ func schemaDefs(t *testing.T) (map[string]any, []byte) {
 	return defs, b
 }
 
-// The condition the issue asks for: the schema is generated from the types
-// rather than maintained beside them, so every field a bundle carries is
-// described and no described field is one the types do not have. Both
-// directions are asserted, because a generator that dropped a field would pass
-// one of them.
+// The conformance condition, and it comes from 0004, which makes this model the
+// thing every reader and every later stage agrees through, and 0007, which makes
+// the bundle the artefact a consumer reads without this repository in hand. A
+// schema that describes a field the types do not carry, or misses one they do,
+// breaks the agreement in the direction nobody notices until a consumer meets a
+// real bundle.
+//
+// Both directions are asserted over every type a bundle carries and not only
+// over the three files at the top. A generator that dropped a nested type would
+// pass a check that stopped at the members, and the nested types are where all
+// the physics is.
 func TestTheSchemaAndTheTypesCoverEachOther(t *testing.T) {
 	defs, raw := schemaDefs(t)
+	carried := typesABundleCarries()
 
-	for _, m := range members() {
-		typ := reflect.TypeOf(m)
-		def, ok := defs[typ.Name()].(map[string]any)
+	for name := range defs {
+		if _, ok := carried[name]; !ok {
+			t.Errorf("the schema defines %s and no type a bundle carries has that name", name)
+		}
+	}
+
+	for name, typ := range carried {
+		def, ok := defs[name].(map[string]any)
 		if !ok {
-			t.Errorf("the schema describes no %s, which is a file the bundle carries", typ.Name())
+			t.Errorf("the schema describes no %s, which is a type the bundle carries", name)
 			continue
 		}
 		properties, ok := def["properties"].(map[string]any)
 		if !ok {
-			t.Errorf("the definition of %s holds no properties:\n%s", typ.Name(), raw)
+			t.Errorf("the definition of %s holds no properties:\n%s", name, raw)
 			continue
 		}
 
 		for i := 0; i < typ.NumField(); i++ {
-			name, _ := jsonName(typ.Field(i))
-			if _, described := properties[name]; !described {
-				t.Errorf("%s carries the field %q and the schema describes it nowhere", typ.Name(), name)
+			field, _ := jsonName(typ.Field(i))
+			if _, described := properties[field]; !described {
+				t.Errorf("%s carries the field %q and the schema describes it nowhere", name, field)
 			}
 		}
-		for name := range properties {
-			if !fieldNamed(typ, name) {
-				t.Errorf("the schema describes %s.%q and the type has no such field", typ.Name(), name)
+		for field := range properties {
+			if !fieldNamed(typ, field) {
+				t.Errorf("the schema describes %s.%q and the type has no such field", name, field)
 			}
+		}
+	}
+}
+
+// A check that walked nothing would pass every assertion above, so what it
+// walked is asserted rather than assumed: the type set has to reach past the
+// three files into the tables inside them.
+func TestTheConformanceCheckReachesTheTablesAndNotOnlyTheFiles(t *testing.T) {
+	carried := typesABundleCarries()
+
+	for _, want := range []string{"Manifest", "Run", "Result", "Level", "Transition", "Quantity", "Observed", "Strength", "Step", "Variable", "VariableStep", "Member", "WrittenBy"} {
+		if _, ok := carried[want]; !ok {
+			t.Errorf("%s is a type a bundle carries and the conformance check does not reach it", want)
+		}
+	}
+}
+
+// typesABundleCarries is every struct type reachable from a bundle member,
+// derived from the types themselves rather than listed. A list here would be a
+// second copy of the model, and it would go stale on the first type somebody
+// adds, which is the drift this whole check exists against.
+func typesABundleCarries() map[string]reflect.Type {
+	out := map[string]reflect.Type{}
+	for _, m := range members() {
+		collect(reflect.TypeOf(m), out)
+	}
+	return out
+}
+
+func collect(t reflect.Type, into map[string]reflect.Type) {
+	for t.Kind() == reflect.Slice || t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return
+	}
+	if _, seen := into[t.Name()]; seen {
+		return
+	}
+	into[t.Name()] = t
+	for i := 0; i < t.NumField(); i++ {
+		if f := t.Field(i); f.IsExported() {
+			collect(f.Type, into)
 		}
 	}
 }
