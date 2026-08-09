@@ -86,6 +86,11 @@ func legs() []leg {
 			run:     capabilitiesLeg,
 		},
 		{
+			name:    "package boundaries",
+			subject: "every edge inside this module is one docs/package-boundaries.md permits",
+			run:     packageBoundariesLeg,
+		},
+		{
 			name:    "dependencies",
 			subject: "the direct dependencies are the ones docs/dependencies.md argues for, their checksums verify, and a build moves neither module file",
 			run:     dependenciesLeg,

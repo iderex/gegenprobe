@@ -1,0 +1,137 @@
+# Which package may import which
+
+The `package boundaries` leg of `go run ./gate` reads the import graph of this
+module and refuses an edge this file does not permit. The permitted direction is
+data here rather than a diagram in a document, so an edge nobody argued for is a
+red run rather than a paragraph somebody stopped believing.
+
+This is the structural half of what `docs/dependencies.md` does for the surface
+outside the module. That file answers which foreign code this tree carries at
+all; this one answers which parts of this tree may reach which other parts.
+
+## How to read an entry
+
+One section per package, named by its path relative to the module, with `.` for
+the command at the root. Each carries the decision the boundary comes from and
+two lists.
+
+`May-import` is what the package's own source may import from this module.
+`May-import-in-tests` is what its test files may import in addition. They are
+separate because a package that reads nothing and a package whose tests read a
+fixture reader are different statements, and collapsing them would let the first
+quietly become the second.
+
+Both lists are exact and neither is a prefix rule. `nothing` is a permitted value
+and means what it says. A package absent from this file is refused, so a new one
+has to be placed rather than defaulted into whatever it happens to import first.
+
+The leg reads the graph the toolchain reports rather than the import lines in the
+source, so an edge that arrives through a rename or a move is seen the same way
+as one somebody typed.
+
+## The entries
+
+## .
+
+Decision: 0001
+May-import: internal/cli
+May-import-in-tests: nothing
+
+The command an operator installs. 0001 fixes that it is one binary built from
+this tree, and the command layer holds no logic: it reaches the command line
+package and nothing else, so anything it grows has to be placed somewhere a test
+can reach without building a binary.
+
+## internal/cli
+
+Decision: 0001
+May-import: internal/version
+May-import-in-tests: nothing
+
+## internal/version
+
+Decision: 0001
+May-import: nothing
+May-import-in-tests: nothing
+
+The version is what every other part is allowed to depend on and it depends on
+nothing, which is what keeps it importable from anywhere without carrying
+anything along with it.
+
+## internal/fixture
+
+Decision: 0009
+May-import: nothing
+May-import-in-tests: nothing
+
+The only thing that reads a fixture. 0009 permits a gate tier test to read files
+under a `testdata` directory, and this package is how that is done, so it has to
+be reachable from every tier without pulling any of the tree behind it.
+
+## internal/boundary
+
+Decision: 0009
+May-import: nothing
+May-import-in-tests: internal/fixture
+
+It judges an import graph handed to it against a declaration handed to it, so
+the judging is testable over recorded graphs and only its caller has to ask the
+toolchain what the real graph is. Reading anything of this tree would make it a
+participant in the thing it judges.
+
+## internal/commit
+
+Decision: 0009
+May-import: nothing
+May-import-in-tests: internal/fixture
+
+It judges commit messages handed to it and reads nothing itself, which is what
+lets the same judgement serve the leg and the command without either holding a
+copy of it. Its tests read recorded ranges, which is the fixture reader and
+nothing more.
+
+## gate
+
+Decision: 0009
+May-import: internal/boundary, internal/commit, internal/fixture
+May-import-in-tests: internal/fixture
+
+The single check command. It may reach into this module to reuse judging that
+already exists, and nothing may reach back into it: it is not part of the binary
+an operator installs, and no entry above lists it.
+
+## tools/commithygiene
+
+Decision: 0001
+May-import: internal/commit
+May-import-in-tests: nothing
+
+## tools/decisionindex
+
+Decision: 0000
+May-import: nothing
+May-import-in-tests: nothing
+
+The index over the decision records is generated rather than typed, which is
+0000's own requirement, and the generator reads the records and nothing else.
+
+## tools/externallinks
+
+Decision: 0001
+May-import: nothing
+May-import-in-tests: nothing
+
+## What this leg does not do
+
+It says nothing about whether a permitted edge is a good idea. A list somebody
+widened without thinking is indistinguishable from one somebody argued for, and
+the review is where that is caught.
+
+It says nothing about the standard library or about anything outside this module.
+`docs/dependencies.md` holds that surface and the `dependencies` leg refuses a
+change to it.
+
+It does not read the schema. The other half of #67 asks that every exported type
+the bundle carries be covered by the schema and every schema field correspond to
+a type field, checked in both directions. There is no model and no schema in this
+tree yet, so that half is not implemented and this file does not imply it is.
