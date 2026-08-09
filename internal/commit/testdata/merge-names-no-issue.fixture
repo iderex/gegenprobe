@@ -1,0 +1,9 @@
+Code: hand-written
+Version: not applicable
+Case: a merge commit whose subject names no issue, which is exempt because the forge wrote it
+Kept: the whole record, in the field order tools/commithygiene asks git for
+
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMx9OaWxzIExlaG5lbiA8MzA2
+MDM0MjMraWRlcmV4QHVzZXJzLm5vcmVwbHkuZ2l0aHViLmNvbT4fNDQ0NDQ0NDQ0NDQ0NDQ0NDQ0
+NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NCA1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1
+NTU1NTU1H01lcmdlIGJyYW5jaCAnY2kvY29tbWl0LWh5Z2llbmUnIGludG8gbWFpbgo=

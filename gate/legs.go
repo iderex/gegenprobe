@@ -66,6 +66,11 @@ func legs() []leg {
 			run:     documentationPathsLeg,
 		},
 		{
+			name:    "commit hygiene",
+			subject: "every commit in this work names its issue and is written in the characters docs/commit-messages.md allows",
+			run:     commitHygieneLeg,
+		},
+		{
 			name:    "action pinning",
 			subject: "every action a workflow uses is pinned to a commit sha",
 			run:     actionPinningLeg,

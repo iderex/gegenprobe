@@ -158,3 +158,51 @@ jobs:
             cat SHA256SUMS
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  commit-hygiene:
+    name: Commit hygiene
+    # Only on a pull request. The rules are about the commits a change is made
+    # of, and outside a pull request there is no range that means that: a push
+    # to the default branch is history, and judging history is what this check
+    # deliberately does not do.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whole history, because the range between the base and the head
+          # is what is judged and a shallow clone does not hold it.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # No check logic here. This runs the same command the gate leg named
+      # commit hygiene runs, over the range this job is the only place that
+      # knows: the gate sees a clone, and only the event carries which commits
+      # the pull request actually holds.
+      #
+      # The two shas and the fork answer are passed as environment variables and
+      # never interpolated into the command, so nothing a contributor controls
+      # is evaluated as shell. Where the head is not a branch of this
+      # repository the subject rule reports instead of failing, because a
+      # contribution from outside cannot know an issue number before the issue
+      # exists.
+      - name: Judge the commits this change is made of
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          FROM_A_FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "$FROM_A_FORK" = "true" ]; then
+            echo "The head is not a branch of this repository, so the subject rule reports rather than fails."
+            go run ./tools/commithygiene -base "$BASE_SHA" -head "$HEAD_SHA" -external
+          else
+            go run ./tools/commithygiene -base "$BASE_SHA" -head "$HEAD_SHA"
+          fi
