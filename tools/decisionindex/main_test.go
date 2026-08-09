@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/iderex/gegenprobe/internal/golden"
 )
 
 // record writes a minimal file in the format 0000 fixes. The four body sections
@@ -195,4 +197,26 @@ func TestSupersededRecordPointsForwardInTheIndex(t *testing.T) {
 	if !strings.Contains(string(got), "| superseded by 0006 |") {
 		t.Fatalf("the index does not carry the forward pointer:\n%s", got)
 	}
+}
+
+// The committed index is a golden: a file this repository holds and reviews,
+// produced by the command beside it. This is the assertion that keeps the two
+// together, and it is the one a change to a record has to answer.
+//
+// It reads the real directory rather than a fixture, because a fixture would
+// prove the renderer and not the file anybody reads. The comparison is the
+// helper in internal/golden, so a stale index is reported as the record that
+// differs rather than as a byte that stopped matching, and running this
+// package's suite with -update rewrites it:
+//
+//	go test ./tools/decisionindex -update
+func TestTheCommittedIndexIsWhatTheRecordsRenderTo(t *testing.T) {
+	dir := filepath.Join("..", "..", "docs", "decisions")
+
+	records, err := readRecords(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	golden.Assert(t, filepath.Join(dir, "README.md"), render(records))
 }
