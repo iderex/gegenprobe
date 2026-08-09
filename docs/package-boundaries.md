@@ -90,6 +90,22 @@ lets the same judgement serve the leg and the command without either holding a
 copy of it. Its tests read recorded ranges, which is the fixture reader and
 nothing more.
 
+## internal/golden
+
+Decision: 0009
+May-import: nothing
+May-import-in-tests: nothing
+
+It compares an artefact a producer wrote against the copy this repository holds,
+and it is handed both. Reading anything of this tree would make it a participant
+in the comparison, which is the same reason `internal/boundary` reads nothing.
+
+It is the one package here whose own source imports `testing`, because the
+assertion and the flag that rewrites a golden belong beside the comparison they
+use rather than in each caller. That is outside this file's subject, which is
+edges inside this module, and it is recorded here because it is the thing a
+reader of this entry would otherwise have to discover.
+
 ## gate
 
 Decision: 0009
@@ -110,10 +126,15 @@ May-import-in-tests: nothing
 
 Decision: 0000
 May-import: nothing
-May-import-in-tests: nothing
+May-import-in-tests: internal/golden
 
 The index over the decision records is generated rather than typed, which is
 0000's own requirement, and the generator reads the records and nothing else.
+
+Its tests reach the golden helper, and only its tests. The command writes the
+index; what compares the committed one against a fresh render is an assertion in
+the suite, so the generator does not carry a comparison it would then be the only
+caller of.
 
 ## tools/externallinks
 
