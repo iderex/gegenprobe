@@ -24,3 +24,4 @@ editing this file:
 | [0011](0011-four-states-for-a-missing-value.md) | Four states for a value that is not there | accepted | 2026-08-07 |
 | [0012](0012-everything-stays-on-the-host.md) | Everything stays on the host unless the operator deliberately publishes | accepted | 2026-08-07 |
 | [0013](0013-the-fit-is-a-separate-component.md) | The fit component inherits no language from the harness | accepted | 2026-08-07 |
+| [0014](0014-the-fit-component-is-python-with-numpy-and-scipy.md) | The fit component is Python with NumPy and SciPy | accepted | 2026-08-09 |
