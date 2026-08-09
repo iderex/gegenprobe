@@ -1,0 +1,197 @@
+# The gate tier, run where the capabilities its tests are forbidden to reach are
+# genuinely absent rather than merely unused.
+#
+# The leg named `gate tier capabilities` reads test source and refuses the
+# shapes that reach for a display, elevation, a container engine or the network.
+# Reading source cannot prove that none of them happens at run time: a test that
+# calls a helper which dials carries no forbidden import of its own, and neither
+# does one that runs a program by a name assembled at run time. This job is the
+# executed half of that check.
+#
+# It is the same tier the gate already runs, in a harsher place. It is not
+# additional coverage, it measures none, and nothing may add its result to the
+# figure the gate publishes. The leg named `capability absence job` refuses this
+# file if it ever starts measuring one.
+#
+# What could not be established is printed before the tier runs rather than
+# after, so a reader meets the caveat before the verdict and a green result says
+# what it proved instead of implying it proved everything.
+name: Gate tier with the capabilities absent
+
+on:
+  # A run time reach is introduced by a change, and it is cheapest to find while
+  # the change is still in front of somebody.
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: absent-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  absent:
+    name: Gate tier with the capabilities absent
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # Everything the tier needs to compile is fetched while the network is
+      # still up, so that a failure below is a test reaching out and never the
+      # toolchain doing so. The module graph here is empty, so what this warms
+      # is the build cache for the standard library.
+      - name: Compile the tier while the network is still up
+        run: go test -run XXXNOTHINGXXX ./...
+
+      # The four steps below establish the four absences. Each one either
+      # establishes it or writes a line into not-removed.txt, which the step
+      # after them prints. None of them exits non zero on a residue: a runner
+      # that cannot remove a capability is a fact about the runner, and hiding
+      # the tier's verdict behind it would say less rather than more.
+      #
+      # The order is not the order they are written in the issue. Two of them
+      # need an elevation tool to do their work, so the step that takes the
+      # elevation tool away is the last of the four.
+      - name: Establish that no display is set or reachable
+        run: |
+          set -euo pipefail
+          for v in DISPLAY WAYLAND_DISPLAY XAUTHORITY BROWSER; do
+            if [ -n "${!v-}" ]; then
+              echo "$v is set to '${!v}' on this runner, and one step cannot unset a variable for another; the tier below is given an environment without it, which is weaker" >> not-removed.txt
+            fi
+          done
+          if [ -d /tmp/.X11-unix ] && [ -n "$(ls -A /tmp/.X11-unix 2>/dev/null)" ]; then
+            echo "a display server socket is present under /tmp/.X11-unix" >> not-removed.txt
+          fi
+          echo "display: no variable set on the runner, and no socket under /tmp/.X11-unix"
+
+      - name: Establish that no container engine is on the path
+        run: |
+          set -euo pipefail
+          # Bounded rather than "until it is gone", so a binary this step cannot
+          # delete becomes a line in not-removed.txt and never a job that spins
+          # until its timeout.
+          for engine in docker podman nerdctl ctr crictl lima colima buildah; do
+            for _ in 1 2 3 4 5; do
+              p="$(command -v "$engine" 2>/dev/null || true)"
+              [ -n "$p" ] || break
+              sudo rm -f "$p" || break
+            done
+          done
+          sudo rm -f /var/run/docker.sock /run/docker.sock /run/podman/podman.sock
+          # The shell remembers where it last found a program, and command -v
+          # answers out of that memory. Without this the check below reports a
+          # binary that is no longer on disk, which is what the first run of
+          # this job did.
+          hash -r
+          left=""
+          for engine in docker podman nerdctl ctr crictl lima colima buildah; do
+            if command -v "$engine" >/dev/null 2>&1; then
+              left="$left $engine"
+            fi
+          done
+          if [ -n "$left" ]; then
+            echo "a container engine is still on the path:$left" >> not-removed.txt
+          fi
+          echo "container engine: none of docker, podman, nerdctl, ctr, crictl, lima, colima or buildah is on the path, and no engine socket is left"
+
+      # A network namespace rather than a firewall rule. The agent that reports
+      # this job runs as the same user as these steps, so a rule filtering by
+      # user would cut the agent off with the tier and the run would report
+      # nothing at all. A namespace takes the network away from the tier's own
+      # process tree and leaves everything outside it alone. Loopback inside it
+      # is down, which is deliberate: the capability list counts loopback as the
+      # network.
+      - name: Establish that outbound network is refused
+        run: |
+          set -euo pipefail
+          echo "TIER_NETNS=no" >> "$GITHUB_ENV"
+          # This runner refuses an unprivileged user namespace by default, which
+          # is an AppArmor setting rather than a kernel one. Lifting it is done
+          # here, while an elevation tool still exists, so that the tier below
+          # needs none: entering the namespace is then something an ordinary
+          # user can do and the tier does it for itself.
+          if ! unshare --user --map-current-user --net -- true 2>/dev/null; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 >/dev/null 2>&1 || true
+          fi
+          if ! unshare --user --map-current-user --net -- true 2>/dev/null; then
+            echo "this runner refuses an unprivileged network namespace even after the AppArmor restriction was lifted, so the tier below ran with the runner's own network reachable" >> not-removed.txt
+            echo "network: NOT established"
+            exit 0
+          fi
+          if unshare --user --map-current-user --net -- \
+              timeout 20 bash -c 'exec 3<>/dev/tcp/1.1.1.1/443' 2>/dev/null; then
+            echo "a connection out of the namespace succeeded, so the namespace is not isolating the network" >> not-removed.txt
+            echo "network: NOT established"
+            exit 0
+          fi
+          echo "TIER_NETNS=yes" >> "$GITHUB_ENV"
+          echo "network: an outbound connection from inside the namespace is refused by the namespace and not by anything the tier does"
+
+      # Last of the four, because the two above need it. Nothing after this step
+      # may need it either, and nothing does.
+      - name: Establish that no elevation tool is available
+        run: |
+          set -euo pipefail
+          for tool in pkexec doas su sudo; do
+            for _ in 1 2 3 4 5; do
+              p="$(command -v "$tool" 2>/dev/null || true)"
+              [ -n "$p" ] || break
+              sudo rm -f "$p" || rm -f "$p" || break
+              hash -r
+            done
+          done
+          hash -r
+          left=""
+          for tool in pkexec doas su sudo; do
+            if command -v "$tool" >/dev/null 2>&1; then
+              left="$left $tool"
+            fi
+          done
+          if [ -n "$left" ]; then
+            echo "an elevation tool is still on the path:$left" >> not-removed.txt
+          fi
+          echo "elevation: none of pkexec, doas, su or sudo is on the path"
+
+      # Before the verdict rather than after it. A reader who sees a green tick
+      # on this job has already been told what it did not prove.
+      - name: Say what could not be established
+        run: |
+          set -euo pipefail
+          if [ -s not-removed.txt ]; then
+            echo "This runner could not establish everything this job asks for. What follows is not proved by a pass here:"
+            cat not-removed.txt
+            echo
+            echo "Each line belongs in the parity table in docs/quality-parity.md, under #83."
+          else
+            echo "All four absences were established on this runner: no display, no container engine, no elevation tool, no network."
+          fi
+
+      # The same tier, and no other. No build tag, so nothing from the
+      # integration or regression tiers is compiled, and no coverage flag, so
+      # this run cannot be added to the figure the gate publishes.
+      - name: Run the gate tier
+        run: |
+          set -euo pipefail
+          if [ "${TIER_NETNS:-no}" = "yes" ]; then
+            unshare --user --map-current-user --net -- \
+              env -u DISPLAY -u WAYLAND_DISPLAY -u XAUTHORITY -u BROWSER \
+              go test ./...
+          else
+            # The step above already wrote why into not-removed.txt and the step
+            # after it printed the line. The tier still runs, with one absence
+            # fewer behind it, because a tier that did not run says less than one
+            # that ran under three.
+            env -u DISPLAY -u WAYLAND_DISPLAY -u XAUTHORITY -u BROWSER \
+              go test ./...
+          fi
