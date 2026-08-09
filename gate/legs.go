@@ -106,6 +106,11 @@ func legs() []leg {
 			run:     dependenciesLeg,
 		},
 		{
+			name:    "quality parity",
+			subject: "every check on the target board has a row in docs/quality-parity.md naming what covers it here or why nothing does",
+			run:     parityLeg,
+		},
+		{
 			name:    "coverage",
 			subject: "the gate tier covers at least the floor docs/coverage-floor.md declares",
 			run:     coverageLeg,
