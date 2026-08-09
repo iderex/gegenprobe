@@ -111,6 +111,11 @@ func legs() []leg {
 			run:     parityLeg,
 		},
 		{
+			name:    "supply chain",
+			subject: "every check the recorded supply chain score names has one outcome in docs/supply-chain.md, and every outcome answers a check it names",
+			run:     supplyChainLeg,
+		},
+		{
 			name:    "coverage",
 			subject: "the gate tier covers at least the floor docs/coverage-floor.md declares",
 			run:     coverageLeg,
