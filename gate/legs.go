@@ -76,6 +76,16 @@ func legs() []leg {
 			run:     actionPinningLeg,
 		},
 		{
+			name:    "file attributes",
+			subject: "every tracked file's type is named in .gitattributes rather than left to a clone's own settings",
+			run:     attributesLeg,
+		},
+		{
+			name:    "recorded bytes",
+			subject: "a fixture holding a carriage return survives git add and a checkout under that declaration",
+			run:     recordedBytesLeg,
+		},
+		{
 			name:    "fixture storage",
 			subject: "every fixture is stored so that no checkout can rewrite its bytes, and says where it came from",
 			run:     fixtureStorageLeg,
