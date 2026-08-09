@@ -89,6 +89,11 @@ jobs:
             done
           done
           sudo rm -f /var/run/docker.sock /run/docker.sock /run/podman/podman.sock
+          # The shell remembers where it last found a program, and command -v
+          # answers out of that memory. Without this the check below reports a
+          # binary that is no longer on disk, which is what the first run of
+          # this job did.
+          hash -r
           left=""
           for engine in docker podman nerdctl ctr crictl lima colima buildah; do
             if command -v "$engine" >/dev/null 2>&1; then
@@ -110,8 +115,17 @@ jobs:
       - name: Establish that outbound network is refused
         run: |
           set -euo pipefail
+          echo "TIER_NETNS=no" >> "$GITHUB_ENV"
+          # This runner refuses an unprivileged user namespace by default, which
+          # is an AppArmor setting rather than a kernel one. Lifting it is done
+          # here, while an elevation tool still exists, so that the tier below
+          # needs none: entering the namespace is then something an ordinary
+          # user can do and the tier does it for itself.
           if ! unshare --user --map-current-user --net -- true 2>/dev/null; then
-            echo "this runner refuses an unprivileged network namespace, so the tier below ran with the runner's own network reachable" >> not-removed.txt
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 >/dev/null 2>&1 || true
+          fi
+          if ! unshare --user --map-current-user --net -- true 2>/dev/null; then
+            echo "this runner refuses an unprivileged network namespace even after the AppArmor restriction was lifted, so the tier below ran with the runner's own network reachable" >> not-removed.txt
             echo "network: NOT established"
             exit 0
           fi
@@ -121,6 +135,7 @@ jobs:
             echo "network: NOT established"
             exit 0
           fi
+          echo "TIER_NETNS=yes" >> "$GITHUB_ENV"
           echo "network: an outbound connection from inside the namespace is refused by the namespace and not by anything the tier does"
 
       # Last of the four, because the two above need it. Nothing after this step
@@ -133,8 +148,10 @@ jobs:
               p="$(command -v "$tool" 2>/dev/null || true)"
               [ -n "$p" ] || break
               sudo rm -f "$p" || rm -f "$p" || break
+              hash -r
             done
           done
+          hash -r
           left=""
           for tool in pkexec doas su sudo; do
             if command -v "$tool" >/dev/null 2>&1; then
@@ -166,6 +183,15 @@ jobs:
       - name: Run the gate tier
         run: |
           set -euo pipefail
-          unshare --user --map-current-user --net -- \
+          if [ "${TIER_NETNS:-no}" = "yes" ]; then
+            unshare --user --map-current-user --net -- \
+              env -u DISPLAY -u WAYLAND_DISPLAY -u XAUTHORITY -u BROWSER \
+              go test ./...
+          else
+            # The step above already wrote why into not-removed.txt and the step
+            # after it printed the line. The tier still runs, with one absence
+            # fewer behind it, because a tier that did not run says less than one
+            # that ran under three.
             env -u DISPLAY -u WAYLAND_DISPLAY -u XAUTHORITY -u BROWSER \
-            go test ./...
+              go test ./...
+          fi
