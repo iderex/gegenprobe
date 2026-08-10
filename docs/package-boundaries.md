@@ -104,6 +104,22 @@ a reader would make the shared vocabulary a participant in one code's output.
 Its tests read a stored bundle from a format this build does not read, which is
 the fixture reader and nothing more.
 
+## internal/reader
+
+Decision: 0004
+May-import: internal/model
+May-import-in-tests: internal/fixture
+
+The contract every reader keeps, the registry of the readers this build carries,
+and the judgement that decides whether one of them keeps it. It reaches the
+model because the model is what a reader produces, and it reaches nothing else:
+a contract that read a case, a runner or a bundle would be judging a reader
+against the rest of the pipeline rather than against itself.
+
+The recorded files a reader is judged against are handed to the judgement rather
+than read by it, which is the same reason `internal/boundary` is handed a graph.
+So the fixture reader is in its tests and not in its source.
+
 ## internal/golden
 
 Decision: 0009
