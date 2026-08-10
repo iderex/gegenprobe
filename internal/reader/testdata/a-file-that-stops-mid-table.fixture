@@ -1,0 +1,7 @@
+Code: hand-written
+Version: not applicable
+Case: the same table stopping inside the second record, as a killed run leaves it
+Kept: the header, the first record, and nineteen characters of the second
+
+REVNTyBMRVZFTFMgMQogICAgMSAgIDAgZXZlbiAxczIgICAgICAgICAgICAgIDEyMzQ1LjYwCiAg
+ICAyICAgMiBvZGQgIDFzMnA=
