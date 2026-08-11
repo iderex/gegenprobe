@@ -106,6 +106,11 @@ func legs() []leg {
 			run:     packageBoundariesLeg,
 		},
 		{
+			name:    "invariants",
+			subject: "no source in this tree trips a rule a decision record already fixed",
+			run:     invariantsLeg,
+		},
+		{
 			name:    "dependencies",
 			subject: "the direct dependencies are the ones docs/dependencies.md argues for, their checksums verify, and a build moves neither module file",
 			run:     dependenciesLeg,
