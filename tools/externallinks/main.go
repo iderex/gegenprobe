@@ -134,9 +134,32 @@ type answer struct {
 	err    error
 }
 
+// refusesThisReader is the set of statuses a host uses to turn away a client
+// rather than to say anything about a page. The comment at the top of this file
+// already named the case, "a host that answers a browser and refuses anything
+// else", and until this list existed such a host was reported as a dead link.
+//
+// None of the three is a statement that the page moved or went away. A page that
+// moved answers 301 or 404, which stay on the dead list where they belong. What
+// these say is that this reader was not allowed to look, so the link is not
+// confirmed either: an entry here is an unread link and the report says so
+// rather than counting it among the ones that answered.
+var refusesThisReader = map[int]string{
+	401: "the host asked for credentials this reader does not have",
+	403: "the host refused this reader",
+	429: "the host asked this reader to come back later",
+}
+
 // report asks about every URL and writes what came back. It returns an error
 // where at least one did not answer, so the caller's exit status carries the
 // same statement as the text.
+//
+// A refusal is not an error, and that is the one judgement in this function.
+// The workflow around this command raises a tracking issue from the exit status,
+// and a host that will refuse every automated reader forever produces the same
+// issue every week, which is a register talking to itself rather than a finding.
+// The refusal stays in the output of every run, under its own heading and its own
+// count, so nothing here reads as a link somebody checked.
 func report(w io.Writer, found map[string][]string, ask func(string) answer) error {
 	urls := make([]string, 0, len(found))
 	for url := range found {
@@ -144,21 +167,38 @@ func report(w io.Writer, found map[string][]string, ask func(string) answer) err
 	}
 	sort.Strings(urls)
 
-	var bad []string
+	var bad, refused []string
 	for _, url := range urls {
 		a := ask(url)
+		where := strings.Join(found[url], ", ")
 		switch {
 		case a.err != nil:
-			bad = append(bad, fmt.Sprintf("%s\n    %s\n    written at %s", url, a.err, strings.Join(found[url], ", ")))
+			bad = append(bad, fmt.Sprintf("%s\n    %s\n    written at %s", url, a.err, where))
+		case refusesThisReader[a.status] != "":
+			refused = append(refused, fmt.Sprintf("%s\n    answered %d, and %s\n    written at %s", url, a.status, refusesThisReader[a.status], where))
 		case a.status >= 400:
-			bad = append(bad, fmt.Sprintf("%s\n    answered %d\n    written at %s", url, a.status, strings.Join(found[url], ", ")))
+			bad = append(bad, fmt.Sprintf("%s\n    answered %d\n    written at %s", url, a.status, where))
 		}
 	}
 
-	fmt.Fprintf(w, "%d external link(s) read, %d of them did not answer.\n", len(urls), len(bad))
+	fmt.Fprintf(w, "%d external link(s) read, %d of them did not answer, %d refused this reader.\n", len(urls), len(bad), len(refused))
+	if len(refused) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Refused this reader, so not read and not confirmed:")
+		fmt.Fprintln(w)
+		for _, r := range refused {
+			fmt.Fprintln(w, r)
+		}
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "A host that turns an automated reader away says nothing about the page behind")
+		fmt.Fprintln(w, "the link. It is not evidence that the link is good, and it is not a reason to")
+		fmt.Fprintln(w, "raise the same finding every week, so it is counted here and nowhere else.")
+	}
 	if len(bad) == 0 {
 		return nil
 	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Did not answer:")
 	fmt.Fprintln(w)
 	for _, b := range bad {
 		fmt.Fprintln(w, b)
