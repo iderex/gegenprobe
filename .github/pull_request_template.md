@@ -1,6 +1,6 @@
 <!--
 Three questions, and the third one only applies to a change that adds a check.
-Delete the section that does not apply rather than leaving it empty.
+Delete the section that does not apply; an empty one says nothing.
 -->
 
 ## What changed
@@ -11,7 +11,7 @@ Delete the section that does not apply rather than leaving it empty.
 
 <!--
 Not what it improves. What goes wrong without it, and how you know that failure
-is real rather than imagined. If it has already happened, say where.
+is real. If it has already happened, say where.
 -->
 
 ## Where the proof that the check bites lives
@@ -34,7 +34,7 @@ Delete this section if the change adds no check.
 
 <!--
 Every number here carries the command that produced it, run at the commit being
-pushed rather than in your working tree. Where a claim cannot be backed by a
+pushed and never in your working tree. Where a claim cannot be backed by a
 command, write it as a claim and say so.
 
 Paste the commands and their output.
