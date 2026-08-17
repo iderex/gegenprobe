@@ -1,24 +1,33 @@
-# What git may do to a file in this tree, decided per type rather than left to
-# whatever a clone happens to be configured for.
+
+
+
 #
-# Every file type this repository tracks is named below. The leg named file
-# attributes in `go run ./gate` refuses a tracked file whose type is not, so a
-# new kind of file arrives as a decision somebody made rather than as a default
-# nobody saw.
 #
 # A pattern with no slash in it is what names a type. A pattern with one refines
-# what a tree-wide pattern already decided and names nothing on its own.
-
-# The default, and it decides nothing. A file reaching this line is one whose
-# type has not been declared, and the gate refuses it. What the line does is
-# make that refusal safe to meet: an undeclared file keeps its bytes until
-# somebody chooses for it, instead of being converted while nobody is looking.
-* -text
-
+# Every file type this repository tracks is named below. The leg named file
+# Recorded bytes, and the reason this file is load bearing rather than tidy. A
 # Source, documents and configuration. Line feeds in the object and line feeds
-# in the working tree on every platform, so the bytes somebody opens are the
+# The default, and it decides nothing. A file reaching this line is one whose
+# What git may do to a file in this tree, decided per type rather than left to
+# attributes in `go run ./gate` refuses a tracked file whose type is not, so a
 # bytes somebody else committed and a formatter reaches the same verdict
+# conversion in either direction, and the fixture directories are named a second
+# fixture is exactly what came out of a program: a column position, a trailing
+# in the working tree on every platform, so the bytes somebody opens are the
+# leaves the suite green while it reads something nobody collected. No
+# make that refusal safe to meet: an undeclared file keeps its bytes until
+# new kind of file arrives as a decision somebody made rather than as a default
+# nobody saw.
+# somebody chooses for it, instead of being converted while nobody is looking.
+# space, a carriage return that is part of the record. Converting any of it
+# time so the rule does not depend on the extension alone.
+# type has not been declared, and the gate refuses it. What the line does is
+# what a tree-wide pattern already decided and names nothing on its own.
+# whatever a clone happens to be configured for.
 # wherever it runs.
+* -text
+**/testdata/**  -text
+*.fixture       -text
 *.go            text eol=lf
 *.md            text eol=lf
 *.mod           text eol=lf
@@ -28,12 +37,4 @@
 .editorconfig   text eol=lf
 .gitattributes  text eol=lf
 .gitignore      text eol=lf
-
-# Recorded bytes, and the reason this file is load bearing rather than tidy. A
-# fixture is exactly what came out of a program: a column position, a trailing
-# space, a carriage return that is part of the record. Converting any of it
-# leaves the suite green while it reads something nobody collected. No
-# conversion in either direction, and the fixture directories are named a second
-# time so the rule does not depend on the extension alone.
-*.fixture       -text
-**/testdata/**  -text
+LICENSE text eol=lf
